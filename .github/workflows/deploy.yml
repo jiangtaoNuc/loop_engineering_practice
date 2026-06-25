@@ -1,0 +1,176 @@
+name: Deploy (coding-harness-viz)
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'coding-harness-viz/**'
+      - '.github/workflows/deploy.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: coding-harness-viz
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: coding-harness-viz/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Build
+        run: pnpm build
+
+      - name: Build shared package (for production runtime)
+        run: pnpm --filter @coding-harness/shared exec tsc
+
+      - name: Upload deploy artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: coding-harness-viz-deploy
+          path: |
+            coding-harness-viz/apps/web/dist
+            coding-harness-viz/apps/bff/dist
+            coding-harness-viz/apps/bff/package.json
+            coding-harness-viz/packages/shared/dist
+            coding-harness-viz/packages/shared/package.json
+            coding-harness-viz/package.json
+            coding-harness-viz/pnpm-lock.yaml
+            coding-harness-viz/pnpm-workspace.yaml
+          retention-days: 7
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check required SSH secrets
+        env:
+          ECS_SSH_HOST: ${{ secrets.ECS_SSH_HOST }}
+          ECS_SSH_USER: ${{ secrets.ECS_SSH_USER }}
+          ECS_SSH_PRIVATE_KEY: ${{ secrets.ECS_SSH_PRIVATE_KEY }}
+        run: |
+          if [ -z "$ECS_SSH_HOST" ]; then
+            echo "::error::ECS_SSH_HOST not configured, abort."
+            exit 1
+          fi
+          if [ -z "$ECS_SSH_USER" ]; then
+            echo "::error::ECS_SSH_USER not configured, abort."
+            exit 1
+          fi
+          if [ -z "$ECS_SSH_PRIVATE_KEY" ]; then
+            echo "::error::ECS_SSH_PRIVATE_KEY not configured, abort."
+            exit 1
+          fi
+          echo "All required SSH secrets are configured."
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: coding-harness-viz-deploy
+          path: deploy-src
+
+      - name: Prepare deploy staging
+        run: |
+          mkdir -p staging/web
+          mkdir -p staging/bff/apps/bff
+          mkdir -p staging/bff/packages/shared
+
+          # Web static assets
+          cp -r deploy-src/apps/web/dist/. staging/web/
+
+          # BFF workspace root
+          cp deploy-src/package.json staging/bff/
+          cp deploy-src/pnpm-lock.yaml staging/bff/
+          cp deploy-src/pnpm-workspace.yaml staging/bff/
+
+          # BFF app
+          cp deploy-src/apps/bff/package.json staging/bff/apps/bff/
+          cp -r deploy-src/apps/bff/dist staging/bff/apps/bff/
+
+          # Shared package (needed for workspace:* resolution at runtime)
+          cp deploy-src/packages/shared/package.json staging/bff/packages/shared/
+          cp -r deploy-src/packages/shared/dist staging/bff/packages/shared/
+
+          # Create tarballs for reliable transfer
+          tar czf web.tar.gz -C staging/web .
+          tar czf bff.tar.gz -C staging/bff .
+
+      - name: Upload deploy tarballs to ECS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.ECS_SSH_HOST }}
+          username: ${{ secrets.ECS_SSH_USER }}
+          port: ${{ secrets.ECS_SSH_PORT || '22' }}
+          key: ${{ secrets.ECS_SSH_PRIVATE_KEY }}
+          source: "web.tar.gz,bff.tar.gz"
+          target: "/tmp/coding-harness-viz-deploy"
+          overwrite: true
+
+      - name: Deploy and restart BFF
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.ECS_SSH_HOST }}
+          username: ${{ secrets.ECS_SSH_USER }}
+          port: ${{ secrets.ECS_SSH_PORT || '22' }}
+          key: ${{ secrets.ECS_SSH_PRIVATE_KEY }}
+          script: |
+            set -euo pipefail
+
+            DEPLOY_DIR="/srv/coding-harness-viz"
+            TMP_DIR="/tmp/coding-harness-viz-deploy"
+            mkdir -p "$DEPLOY_DIR/web" "$DEPLOY_DIR/bff"
+
+            # --- Backup current release for rollback ---
+            if [ -d "$DEPLOY_DIR/web" ] && [ "$(ls -A "$DEPLOY_DIR/web" 2>/dev/null)" ]; then
+              rm -rf "$DEPLOY_DIR/web.bak"
+              cp -r "$DEPLOY_DIR/web" "$DEPLOY_DIR/web.bak"
+            fi
+            if [ -d "$DEPLOY_DIR/bff/apps/bff/dist" ]; then
+              rm -rf "$DEPLOY_DIR/bff/apps/bff/dist.bak"
+              cp -r "$DEPLOY_DIR/bff/apps/bff/dist" "$DEPLOY_DIR/bff/apps/bff/dist.bak"
+            fi
+
+            # --- Extract web assets ---
+            cd "$DEPLOY_DIR/web"
+            tar xzf "$TMP_DIR/web.tar.gz"
+
+            # --- Extract BFF workspace ---
+            cd "$DEPLOY_DIR/bff"
+            tar xzf "$TMP_DIR/bff.tar.gz"
+
+            # --- Install production dependencies ---
+            cd "$DEPLOY_DIR/bff"
+            pnpm install --prod --frozen-lockfile
+
+            # --- Restart BFF service ---
+            systemctl restart coding-harness-viz-bff || {
+              echo "systemctl restart failed, trying daemon-reload..."
+              systemctl daemon-reload
+              systemctl restart coding-harness-viz-bff
+            }
+
+            # --- Smoke test ---
+            sleep 3
+            curl -fsS http://127.0.0.1:3300/api/health
+            echo ""
+            echo "Deploy smoke test passed."
+
+            # --- Cleanup ---
+            rm -rf "$TMP_DIR"

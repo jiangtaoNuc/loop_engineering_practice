@@ -102,3 +102,94 @@ Each test suite starts BFF in mock mode with its fixture, then runs the Playwrig
 - AC-05: PR merge triggers firework animation
 - AC-06: Deploy success triggers rocket animation, S6 highlighted
 - AC-11: Clicking issue tab switches pipeline within 300ms, URL syncs
+
+## Deployment
+
+The project deploys to a Multica ECS host via GitHub Actions. Two workflows live in `.github/workflows/`:
+
+- **ci.yml** — runs typecheck + build on every PR and push to `main` that touches `coding-harness-viz/**`. Uploads build artifacts.
+- **deploy.yml** — triggers on push to `main` (or `workflow_dispatch`). Builds the project, syncs `apps/web/dist/` to `/srv/coding-harness-viz/web/` and the BFF workspace to `/srv/coding-harness-viz/bff/`, installs production deps, restarts the systemd service, and runs a smoke test (`curl http://127.0.0.1:3300/api/health`).
+
+### Required Repository Secrets
+
+The deploy workflow needs these GitHub Actions secrets. Set them before triggering deploy:
+
+| Secret | Description |
+|--------|-------------|
+| `ECS_SSH_HOST` | ECS host IP or hostname |
+| `ECS_SSH_USER` | SSH login user (e.g. `root` or `www-data`) |
+| `ECS_SSH_PORT` | SSH port (defaults to 22 if unset) |
+| `ECS_SSH_PRIVATE_KEY` | PEM-encoded private key for SSH access |
+
+Example:
+
+```bash
+gh secret set ECS_SSH_HOST   -b "203.0.113.10"
+gh secret set ECS_SSH_USER   -b "root"
+gh secret set ECS_SSH_PORT   -b "22"
+gh secret set ECS_SSH_PRIVATE_KEY < ~/.ssh/ecs_deploy_key
+```
+
+If secrets are not configured, the deploy job fails early with a clear `ECS_SSH_HOST not configured, abort.` message instead of an obscure SSH error.
+
+### ECS Directory Layout
+
+```
+/srv/coding-harness-viz/
+├── web/                          # static frontend (apps/web/dist)
+├── web.bak/                      # previous release (for rollback)
+└── bff/                          # pnpm workspace root
+    ├── package.json
+    ├── pnpm-lock.yaml
+    ├── pnpm-workspace.yaml
+    ├── apps/bff/
+    │   ├── package.json
+    │   ├── dist/                 # BFF compiled output
+    │   └── dist.bak/             # previous release (for rollback)
+    └── packages/shared/
+        ├── package.json
+        └── dist/                 # shared package compiled output
+```
+
+### Systemd Service
+
+The BFF runs as a systemd service (`coding-harness-viz-bff`). The unit file is in `deploy/coding-harness-viz-bff.service`.
+
+```bash
+# Start / stop / restart
+sudo systemctl start coding-harness-viz-bff
+sudo systemctl stop coding-harness-viz-bff
+sudo systemctl restart coding-harness-viz-bff
+
+# Check status & logs
+sudo systemctl status coding-harness-viz-bff
+sudo journalctl -u coding-harness-viz-bff -f
+```
+
+### Nginx
+
+Nginx serves the static frontend from `/srv/coding-harness-viz/web/` and proxies `/api/*` to the BFF on `127.0.0.1:3300`. See `deploy/nginx.conf.example`.
+
+### Rollback
+
+Each deploy backs up the previous release:
+
+```bash
+# Rollback BFF
+cd /srv/coding-harness-viz/bff/apps/bff
+rm -rf dist && mv dist.bak dist
+sudo systemctl restart coding-harness-viz-bff
+
+# Rollback web
+cd /srv/coding-harness-viz
+rm -rf web && mv web.bak web
+sudo nginx -s reload
+```
+
+### One-time ECS Onboarding
+
+Run `deploy/bootstrap.sh` on the ECS host to install Node.js, pnpm, nginx, and register the systemd service:
+
+```bash
+sudo bash coding-harness-viz/deploy/bootstrap.sh
+```

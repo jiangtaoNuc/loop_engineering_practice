@@ -1,0 +1,16 @@
+[Unit]
+Description=Coding Harness Viz BFF (Fastify)
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/srv/coding-harness-viz/bff/apps/bff
+Environment=NODE_ENV=production
+Environment=PORT=3300
+ExecStart=/usr/bin/node /srv/coding-harness-viz/bff/apps/bff/dist/index.js
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
