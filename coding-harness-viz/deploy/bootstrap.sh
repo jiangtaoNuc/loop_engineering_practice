@@ -102,6 +102,8 @@ if ! command -v node &>/dev/null; then
         apt-get install -y nodejs
     else
         curl -fsSL "https://rpm.nodesource.com/setup_${NODE_MAJOR_VERSION}.x" | bash -
+
+
         "$PKG_MANAGER" install -y nodejs
     fi
 else
