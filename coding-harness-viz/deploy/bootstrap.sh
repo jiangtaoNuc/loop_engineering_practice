@@ -65,14 +65,19 @@ echo ">> Detected distro: $DISTRO_ID (family: $PKG_FAMILY, package manager: $PKG
 echo ">> Creating directories under $DEPLOY_DIR ..."
 mkdir -p "$DEPLOY_DIR/web" "$DEPLOY_DIR/bff"
 
-# 2. Install Node.js 20 via NodeSource if not present
+# 2. Install Node.js via NodeSource if not present
+#    Node 20+ requires glibc >= 2.28; fall back to Node 16 on older RHEL-family distros.
+NODE_MAJOR_VERSION="20"
+if [[ "$PKG_FAMILY" == "rhel" ]]; then
+    GLIBC_VERSION="$(glibc_version)"
+    if [[ -n "$GLIBC_VERSION" ]] && ! version_ge "$GLIBC_VERSION" "2.28"; then
+        NODE_MAJOR_VERSION="16"
+        echo ">> glibc $GLIBC_VERSION detected (< 2.28); falling back to Node.js $NODE_MAJOR_VERSION"
+    fi
+fi
+
 if ! command -v node &>/dev/null; then
-    echo ">> Installing Node.js 20 ..."
-    if [[ "$PKG_FAMILY" == "debian" ]]; then
-        curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
-        apt-get install -y nodejs
-    else
-        curl -fsSL https://rpm.nodesource.com/setup_20.x | bash -
+
         "$PKG_MANAGER" install -y nodejs
     fi
 else
