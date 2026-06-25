@@ -1,0 +1,79 @@
+:root {
+  --bg-deep: #1A1C2C;
+  --ink-muted: #41546B;
+  --accent-cyan: #41A6F6;
+  --accent-lime: #A7F070;
+  --accent-red: #E43B44;
+  --text-bone: #F4F4F4;
+  --text-dust: #C0CBDC;
+  --font-heading: 'Press Start 2P', monospace;
+  --font-body: 'VT323', monospace;
+  --node-size: 64px;
+  --pipe-height: 8px;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #root {
+  height: 100%;
+  background: var(--bg-deep);
+  color: var(--text-bone);
+  font-family: var(--font-body);
+  font-size: 20px;
+  overflow-x: hidden;
+}
+
+@keyframes heartbeat {
+  0%, 100% { transform: scale(1); }
+  25% { transform: scale(1.12); }
+  50% { transform: scale(0.95); }
+  75% { transform: scale(1.06); }
+}
+
+@keyframes dataFlow {
+  0% { background-position: 0 0; }
+  100% { background-position: 16px 0; }
+}
+
+@keyframes nodeLightUp {
+  0% { opacity: 0.2; box-shadow: 0 0 0 var(--accent-cyan); }
+  50% { opacity: 0.8; box-shadow: 0 0 20px var(--accent-cyan); }
+  100% { opacity: 1; box-shadow: 0 0 8px var(--accent-cyan); }
+}
+
+@keyframes firework {
+  0% { transform: scale(0) rotate(0deg); opacity: 1; }
+  50% { transform: scale(1.5) rotate(180deg); opacity: 0.8; }
+  100% { transform: scale(2) rotate(360deg); opacity: 0; }
+}
+
+@keyframes rocketLaunch {
+  0% { transform: translateY(0) translateX(0); opacity: 1; }
+  60% { transform: translateY(-30px) translateX(40px); opacity: 1; }
+  100% { transform: translateY(-50px) translateX(80px); opacity: 0; }
+}
+
+@keyframes failShake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-4px); }
+  40% { transform: translateX(4px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(4px); }
+}
+
+@keyframes bannerSlide {
+  from { transform: translateY(-100%); }
+  to { transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .anim-heartbeat { animation: none !important; }
+  .anim-dataflow { animation: none !important; }
+  .anim-firework { animation: none !important; display: none !important; }
+  .anim-rocket { animation: none !important; display: none !important; }
+  .anim-shake { animation: none !important; }
+}
