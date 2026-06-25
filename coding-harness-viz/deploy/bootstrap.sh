@@ -1,8 +1,12 @@
 #!/usr/bin/env bash
+# If invoked via sh, re-exec under bash (script uses bash-specific syntax)
+if [ -z "${BASH_VERSION:-}" ]; then
+    exec bash "$0" "$@"
+fi
 set -euo pipefail
 
 # bootstrap.sh — one-time ECS onboarding script for coding-harness-viz
-# Run as root: sudo bash bootstrap.sh
+# Run as root: sudo bash bootstrap.sh  (or: sh bootstrap.sh)
 # Not called by CI; for manual ops onboarding only.
 
 DEPLOY_DIR="/srv/coding-harness-viz"
