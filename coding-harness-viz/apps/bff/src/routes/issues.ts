@@ -3,9 +3,16 @@ import type { IssuesListResponse, IssueSummary } from '@coding-harness/shared';
 import * as multica from '../services/multica-cli.js';
 import * as github from '../services/github.js';
 import { buildSnapshot } from '../services/fsm.js';
+import { isMockMode, mockListIssues, mockGetHarness } from '../services/mock.js';
 
 export async function issueRoutes(app: FastifyInstance): Promise<void> {
   app.get('/api/issues', async (_req, reply) => {
+    if (isMockMode()) {
+      const body = mockListIssues();
+      reply.header('ETag', `"${body.etag}"`);
+      return body;
+    }
+
     try {
       const issues = await multica.listIssues();
       const summaries: IssueSummary[] = issues
@@ -36,6 +43,19 @@ export async function issueRoutes(app: FastifyInstance): Promise<void> {
 
   app.get('/api/issues/:id/harness', async (req, reply) => {
     const { id } = req.params as { id: string };
+
+    if (isMockMode()) {
+      const snap = mockGetHarness(id);
+      if (!snap) {
+        return reply.code(404).send({ error: 'Mock issue not found' });
+      }
+      const ifNoneMatch = req.headers['if-none-match'];
+      if (ifNoneMatch === `"${snap.etag}"`) {
+        return reply.code(304).send();
+      }
+      reply.header('ETag', `"${snap.etag}"`);
+      return snap;
+    }
 
     try {
       const [issue, comments, metadata] = await Promise.all([
