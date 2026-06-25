@@ -1,8 +1,12 @@
 #!/usr/bin/env bash
+# If invoked via sh, re-exec under bash (script uses bash-specific syntax)
+if [ -z "${BASH_VERSION:-}" ]; then
+    exec bash "$0" "$@"
+fi
 set -euo pipefail
 
 # bootstrap.sh — one-time ECS onboarding script for coding-harness-viz
-# Run as root: sudo bash bootstrap.sh
+# Run as root: sudo bash bootstrap.sh  (or: sh bootstrap.sh)
 # Not called by CI; for manual ops onboarding only.
 
 DEPLOY_DIR="/srv/coding-harness-viz"
@@ -58,6 +62,21 @@ else
     exit 1
 fi
 
+# Helpers for glibc-based Node version fallback
+glibc_version() {
+    if command -v ldd &>/dev/null; then
+        ldd --version 2>/dev/null | head -n1 | grep -oE '[0-9]+\.[0-9]+' | head -n1
+    fi
+}
+
+version_ge() {
+    local v1_major="${1%%.*}"
+    local v1_minor="${1#*.}"
+    local v2_major="${2%%.*}"
+    local v2_minor="${2#*.}"
+    [[ "$v1_major" -gt "$v2_major" ]] || { [[ "$v1_major" -eq "$v2_major" ]] && [[ "$v1_minor" -ge "$v2_minor" ]]; }
+}
+
 echo "=== coding-harness-viz bootstrap ==="
 echo ">> Detected distro: $DISTRO_ID (family: $PKG_FAMILY, package manager: $PKG_MANAGER)"
 
@@ -77,6 +96,13 @@ if [[ "$PKG_FAMILY" == "rhel" ]]; then
 fi
 
 if ! command -v node &>/dev/null; then
+    echo ">> Installing Node.js $NODE_MAJOR_VERSION ..."
+    if [[ "$PKG_FAMILY" == "debian" ]]; then
+        curl -fsSL "https://deb.nodesource.com/setup_${NODE_MAJOR_VERSION}.x" | bash -
+        apt-get install -y nodejs
+    else
+        curl -fsSL "https://rpm.nodesource.com/setup_${NODE_MAJOR_VERSION}.x" | bash -
+
 
         "$PKG_MANAGER" install -y nodejs
     fi
