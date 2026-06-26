@@ -90,6 +90,14 @@ export async function getComments(id: string): Promise<MulticaComment[]> {
   return JSON.parse(raw);
 }
 
+export async function getAllComments(id: string): Promise<MulticaComment[]> {
+  const raw = await runMultica([
+    'issue', 'comment', 'list', id,
+    '--output', 'json',
+  ]);
+  return JSON.parse(raw);
+}
+
 export async function getCommentsForCodingStats(id: string): Promise<MulticaComment[]> {
   const raw = await runMultica([
     'issue', 'comment', 'list', id,
