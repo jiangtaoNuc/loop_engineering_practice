@@ -166,3 +166,7 @@ Run `deploy/bootstrap.sh` on the ECS host to install Node.js, pnpm, nginx, and r
 ```bash
 sudo bash coding-harness-viz/deploy/bootstrap.sh
 ```
+
+## Query: include_autopilot
+
+By default, `GET /api/issues` filters out issues assigned to the SRE autopilot agent that have no linked PR. Append `?include_autopilot=1` to bypass the filter for debugging. The frontend toggle persists to `localStorage["chv:includeAutopilot"]`.

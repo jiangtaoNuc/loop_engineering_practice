@@ -3,14 +3,37 @@ import type { IssuesListResponse, IssueSummary } from '@coding-harness/shared';
 import * as multica from '../services/multica-cli.js';
 import * as github from '../services/github.js';
 import { buildSnapshot } from '../services/fsm.js';
+import { extractPrUrl } from '../services/fsm.js';
+import { SRE_AUTOPILOT_AGENT_ID, ISSUE_LIST_LIMIT } from '../constants.js';
 
 export async function issueRoutes(app: FastifyInstance): Promise<void> {
-  app.get('/api/issues', async (_req, reply) => {
+  app.get('/api/issues', async (req, reply) => {
     try {
+      const query = req.query as { include_autopilot?: string };
+      const includeAutopilot = query.include_autopilot === '1';
+
       const issues = await multica.listIssues();
-      const summaries: IssueSummary[] = issues
+      let filtered = issues;
+
+      if (!includeAutopilot) {
+        const filteredPromises = issues.map(async (issue) => {
+          if (issue.assignee_id !== SRE_AUTOPILOT_AGENT_ID) {
+            return issue;
+          }
+          const [metadata, comments] = await Promise.all([
+            multica.getMetadata(issue.id),
+            multica.getComments(issue.id),
+          ]);
+          const prUrl = extractPrUrl(metadata, comments);
+          return prUrl ? issue : null;
+        });
+        const results = await Promise.all(filteredPromises);
+        filtered = results.filter((i): i is multica.MulticaIssue => i !== null);
+      }
+
+      const summaries: IssueSummary[] = filtered
         .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
-        .slice(0, 20)
+        .slice(0, ISSUE_LIST_LIMIT)
         .map((i) => ({
           id: i.id,
           identifier: i.identifier,

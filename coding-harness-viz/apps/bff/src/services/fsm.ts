@@ -8,9 +8,9 @@ import { HARNESS_STATES } from '@coding-harness/shared';
 import type { MulticaIssue, MulticaComment, MulticaMetadata } from './multica-cli.js';
 import type { PrInfo, DeployInfo } from './github.js';
 
-const PR_URL_RE = /https?:\/\/github\.com\/[^/]+\/[^/]+\/pull\/\d+/;
+export const PR_URL_RE = /https?:\/\/github\.com\/[^/]+\/[^/]+\/pull\/\d+/;
 
-function extractPrUrl(metadata: MulticaMetadata, comments: MulticaComment[]): string | null {
+export function extractPrUrl(metadata: MulticaMetadata, comments: MulticaComment[]): string | null {
   if (metadata.pr_url && typeof metadata.pr_url === 'string') return metadata.pr_url;
   for (const c of comments) {
     const match = c.content.match(PR_URL_RE);

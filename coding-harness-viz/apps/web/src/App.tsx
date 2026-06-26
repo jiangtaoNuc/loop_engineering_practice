@@ -1,14 +1,27 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useIssues, useHarness } from './hooks/useHarness';
 import { IssueTabs } from './components/IssueTabs';
 import { Pipeline } from './components/Pipeline';
 import { Sidebar } from './components/Sidebar';
 import { Banner } from './components/Banner';
 
+const LS_KEY = 'chv:includeAutopilot';
+
 export function App() {
-  const { data: issuesData, error: issuesError } = useIssues();
+  const [includeAutopilot, setIncludeAutopilot] = useState<boolean>(
+    () => localStorage.getItem(LS_KEY) === '1'
+  );
+  const { data: issuesData, error: issuesError } = useIssues(includeAutopilot);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const { snapshot, error: harnessError, transition } = useHarness(selectedId);
+
+  const handleToggleAutopilot = useCallback(() => {
+    setIncludeAutopilot((prev) => {
+      const next = !prev;
+      localStorage.setItem(LS_KEY, next ? '1' : '0');
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     if (issuesData?.issues && !selectedId && issuesData.issues.length > 0) {
@@ -67,6 +80,8 @@ export function App() {
         issues={issuesData?.issues ?? []}
         selectedId={selectedId}
         onSelect={handleSelect}
+        includeAutopilot={includeAutopilot}
+        onToggleAutopilot={handleToggleAutopilot}
       />
 
       <div style={{
