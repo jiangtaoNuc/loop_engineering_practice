@@ -47,30 +47,9 @@ export function App() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>(getInitialStatusFilter);
   const { snapshot, error: harnessError, transition } = useHarness(selectedId);
-  const [modalState, setModalState] = useState<HarnessState | null>(null);
-  const { stats, loading: loadingStats, fetchStats } = useCodingStats(selectedId);
   const now = useClock();
   const [modalState, setModalState] = useState<HarnessState | null>(null);
   const { stats, loading: loadingStats, fetchStats } = useCodingStats(selectedId);
-
-  const handleToggleAutopilot = useCallback(() => {
-    setIncludeAutopilot((prev) => {
-      const next = !prev;
-      localStorage.setItem(LS_KEY, next ? '1' : '0');
-      return next;
-    });
-  }, []);
-
-  const handleStatusChange = useCallback((status: string) => {
-    setStatusFilter(status);
-    const url = new URL(window.location.href);
-    if (status === STATUS_FILTER_ALL) {
-      url.searchParams.delete('status');
-    } else {
-      url.searchParams.set('status', status);
-    }
-    window.history.replaceState(null, '', url.toString());
-  }, []);
 
   useEffect(() => {
     if (issuesData?.issues && !selectedId && issuesData.issues.length > 0) {

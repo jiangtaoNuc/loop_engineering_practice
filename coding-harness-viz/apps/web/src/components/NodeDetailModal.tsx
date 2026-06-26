@@ -116,6 +116,7 @@ export function NodeDetailModal({ snapshot, state, stats, loadingStats, onClose 
 
         {state === 'issue_created' && (
           <>
+            {label('CREATOR', `${snapshot.creatorType ?? 'unknown'} ${snapshot.creatorId ? `(${snapshot.creatorId.slice(0, 8)})` : ''}`)}
             {label('CREATED AT', formatDateTime(snapshot.perNode.issue_created.enteredAt))}
             {label('TITLE', snapshot.title)}
             {label('ISSUE', `[${snapshot.identifier}](https://app.multica.io/issues/${snapshot.issueId})`)}
