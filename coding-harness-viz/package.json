@@ -4,7 +4,8 @@
   "scripts": {
     "dev": "pnpm --parallel -r dev",
     "build": "pnpm -r build",
-    "typecheck": "pnpm -r typecheck"
+    "typecheck": "pnpm -r typecheck",
+    "test:e2e": "bash scripts/run-e2e.sh"
   },
   "devDependencies": {
     "typescript": "^5.3.0"

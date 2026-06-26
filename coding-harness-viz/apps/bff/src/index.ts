@@ -3,10 +3,24 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import { issueRoutes } from './routes/issues.js';
 import { healthRoute } from './routes/health.js';
+import { loadMockFixture } from './services/mock.js';
 
 const PORT = parseInt(process.env.BFF_PORT ?? '3300', 10);
 
+function parseArgs(): string | null {
+  const args = process.argv.slice(2);
+  const idx = args.indexOf('--mock-fixture');
+  if (idx !== -1 && idx + 1 < args.length) return args[idx + 1];
+  return null;
+}
+
 async function main() {
+  const fixturePath = parseArgs();
+  if (fixturePath) {
+    loadMockFixture(fixturePath);
+    console.log('[mock] BFF running in mock mode');
+  }
+
   const app = Fastify({
     logger: true,
   });
