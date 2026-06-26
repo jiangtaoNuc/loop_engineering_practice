@@ -40,9 +40,14 @@ export function deriveState(
   if (!hasAgent) return { state: 'issue_created', prUrl };
 
   if (issue.status === 'done') {
-    if (deployInfo?.conclusion === 'success') return { state: 'deployed', prUrl };
-    if (prInfo?.merged) return { state: 'pr_merged', prUrl };
-    return { state: 'deployed', prUrl };
+    if (deployInfo) return { state: 'deployed', prUrl };
+    if (prInfo?.merged) {
+      if (prInfo.ciStartedAt) return { state: 'ci', prUrl };
+      return { state: 'pr_merged', prUrl };
+    }
+    if (prInfo) return { state: 'pr_opened', prUrl };
+    if (hasAgent) return { state: 'agent_picked_up', prUrl };
+    return { state: 'issue_created', prUrl };
   }
   if (issue.status === 'cancelled' && !hasPr) {
     return { state: 'issue_created', prUrl };

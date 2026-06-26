@@ -78,17 +78,18 @@ export async function issueRoutes(app: FastifyInstance): Promise<void> {
     try {
       const [issue, comments, metadata] = await Promise.all([
         multica.getIssue(id),
-        multica.getComments(id),
+        multica.getAllComments(id),
         multica.getMetadata(id),
       ]);
 
-      const prUrl = metadata.pr_url as string | null;
+      const prUrl = extractPrUrl(metadata, comments);
       const prInfo = prUrl ? await github.getPrInfo(prUrl) : null;
 
       let deployInfo = null;
       if (prInfo?.merged && prInfo.mergeCommitSha) {
-        const owner = process.env.GITHUB_OWNER ?? '';
-        const repo = process.env.GITHUB_REPO ?? '';
+        const parsed = prUrl ? github.parsePrUrl(prUrl) : null;
+        const owner = parsed?.owner ?? process.env.GITHUB_OWNER ?? '';
+        const repo = parsed?.repo ?? process.env.GITHUB_REPO ?? '';
         const wf = process.env.DEPLOY_WORKFLOW_FILE ?? 'deploy.yml';
         deployInfo = await github.getDeployInfo(prInfo.mergeCommitSha, owner, repo, wf);
       }
