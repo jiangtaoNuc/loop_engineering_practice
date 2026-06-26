@@ -1,0 +1,3 @@
+export const SRE_AUTOPILOT_AGENT_ID = '58171921-7590-4299-8d32-351f53973acf';
+
+export const ISSUE_LIST_LIMIT = 50;

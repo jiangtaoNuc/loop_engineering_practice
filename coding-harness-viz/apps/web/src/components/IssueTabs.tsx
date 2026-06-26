@@ -4,9 +4,11 @@ interface Props {
   issues: IssueSummary[];
   selectedId: string | null;
   onSelect: (id: string) => void;
+  includeAutopilot: boolean;
+  onToggleAutopilot: () => void;
 }
 
-export function IssueTabs({ issues, selectedId, onSelect }: Props) {
+export function IssueTabs({ issues, selectedId, onSelect, includeAutopilot, onToggleAutopilot }: Props) {
   if (issues.length === 0) {
     return (
       <div style={{
@@ -28,6 +30,8 @@ export function IssueTabs({ issues, selectedId, onSelect }: Props) {
       padding: '8px 16px',
       overflowX: 'auto',
       borderBottom: '4px solid var(--ink-muted)',
+      alignItems: 'center',
+      position: 'relative',
     }}>
       {issues.map((issue) => {
         const isSelected = issue.id === selectedId;
@@ -52,6 +56,27 @@ export function IssueTabs({ issues, selectedId, onSelect }: Props) {
           </button>
         );
       })}
+      <button
+        onClick={onToggleAutopilot}
+        title={includeAutopilot ? 'Hide autopilot issues' : 'Show autopilot issues'}
+        style={{
+          marginLeft: 'auto',
+          width: 24,
+          height: 24,
+          padding: 0,
+          background: includeAutopilot ? 'var(--accent-cyan)' : 'transparent',
+          border: `2px solid ${includeAutopilot ? 'var(--accent-cyan)' : 'var(--ink-muted)'}`,
+          color: includeAutopilot ? 'var(--bg-deep)' : 'var(--text-dust)',
+          cursor: 'pointer',
+          fontSize: 8,
+          lineHeight: '20px',
+          textAlign: 'center',
+          imageRendering: 'pixelated',
+          flexShrink: 0,
+        }}
+      >
+        🛠
+      </button>
     </div>
   );
 }

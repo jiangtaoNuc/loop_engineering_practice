@@ -5,7 +5,7 @@ const POLL_BASE = 7000;
 const POLL_TERMINAL = 30000;
 const TERMINAL_DELAY = 30000;
 
-export function useIssues() {
+export function useIssues(includeAutopilot: boolean = false) {
   const [data, setData] = useState<IssuesListResponse | null>(null);
   const [error, setError] = useState(false);
   const etagRef = useRef<string | null>(null);
@@ -16,7 +16,12 @@ export function useIssues() {
       const headers: Record<string, string> = {};
       if (etagRef.current) headers['If-None-Match'] = `"${etagRef.current}"`;
 
-      const res = await fetch('/api/issues', { headers });
+      const params = new URLSearchParams();
+      if (includeAutopilot) params.set('include_autopilot', '1');
+      const qs = params.toString();
+      const url = qs ? `/api/issues?${qs}` : '/api/issues';
+
+      const res = await fetch(url, { headers });
       if (res.status === 304) return;
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
@@ -29,9 +34,10 @@ export function useIssues() {
       failCount.current++;
       setError(true);
     }
-  }, []);
+  }, [includeAutopilot]);
 
   useEffect(() => {
+    etagRef.current = null;
     fetchIssues();
     const interval = setInterval(fetchIssues, POLL_BASE);
     return () => clearInterval(interval);

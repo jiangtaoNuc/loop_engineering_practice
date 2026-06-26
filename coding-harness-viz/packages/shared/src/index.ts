@@ -73,9 +73,14 @@ export interface IssueSummary {
   updatedAt: string;
 }
 
+export interface IssueListQuery {
+  includeAutopilot?: boolean;
+}
+
 export interface IssuesListResponse {
   issues: IssueSummary[];
   etag: string;
+  degraded?: boolean;
 }
 
 export interface HealthResponse {
