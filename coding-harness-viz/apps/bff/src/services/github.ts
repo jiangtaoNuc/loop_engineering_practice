@@ -17,6 +17,8 @@ export interface PrInfo {
   state: string;
   draft: boolean;
   merged: boolean;
+  mergedAt: string | null;
+  title: string | null;
   mergeCommitSha: string | null;
   headSha: string;
   author: string;
@@ -103,6 +105,8 @@ export async function getPrInfo(prUrl: string): Promise<PrInfo | null> {
       state: pr.state,
       draft: pr.draft ?? false,
       merged: pr.merged ?? false,
+      mergedAt: pr.merged_at ?? null,
+      title: pr.title ?? null,
       mergeCommitSha: pr.merge_commit_sha ?? null,
       headSha: pr.head.sha,
       author: pr.user?.login ?? 'unknown',

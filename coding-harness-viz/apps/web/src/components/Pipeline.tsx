@@ -27,12 +27,36 @@ function formatFullTimestamp(iso: string | null): string {
   return `${yyyy}-${mm}-${dd} ${hh}:${mi}:${ss}`;
 }
 
+function formatTotalDuration(ms: number): string {
+  const totalSeconds = Math.floor(ms / 1000);
+  const s = totalSeconds % 60;
+  const m = Math.floor(totalSeconds / 60) % 60;
+  const h = Math.floor(totalSeconds / 3600);
+  if (h > 0) return `${h}h ${m}m ${String(s).padStart(2, '0')}s`;
+  if (m > 0) return `${m}m ${String(s).padStart(2, '0')}s`;
+  return `${String(s).padStart(2, '0')}s`;
+}
+
+function formatDateTime(iso: string | null): string {
+  if (!iso) return '--';
+  const d = new Date(iso);
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mi = String(d.getMinutes()).padStart(2, '0');
+  const ss = String(d.getSeconds()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd} ${hh}:${mi}:${ss}`;
+}
+
 interface NodeCardProps {
   state: HarnessState;
   currentIndex: number;
   stateIndex: number;
   enteredAt: string | null;
   isFailed: boolean;
+  isCancelled: boolean;
+  onClick: () => void;
 }
 
 function NodeCard({ state, currentIndex, stateIndex, enteredAt, isFailed }: NodeCardProps) {
@@ -52,16 +76,35 @@ function NodeCard({ state, currentIndex, stateIndex, enteredAt, isFailed }: Node
   const bg = isCompleted
     ? 'var(--accent-lime)'
     : isCurrent
-    ? 'var(--accent-cyan)'
+    ? isCancelled
+      ? 'var(--ink-muted)'
+      : 'var(--accent-cyan)'
     : 'var(--ink-muted)';
 
   const textColor = isCompleted || isCurrent ? 'var(--bg-deep)' : 'var(--text-dust)';
+
+  const borderColor = isFailed
+    ? 'var(--accent-red)'
+    : isCurrent
+    ? isCancelled
+      ? 'var(--ink-muted)'
+      : 'var(--accent-cyan)'
+    : isCompleted
+    ? 'var(--accent-lime)'
+    : 'var(--ink-muted)';
 
   const animClass = isCurrent
     ? 'anim-heartbeat'
     : isFailed
     ? 'anim-shake'
     : '';
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      onClick();
+    }
+  };
 
   return (
     <div
@@ -147,19 +190,38 @@ function Pipe({ active }: PipeProps) {
 interface Props {
   snapshot: HarnessSnapshot;
   transition: { from: string; to: string } | null;
+  onNodeClick: (state: HarnessState) => void;
 }
 
-export function Pipeline({ snapshot, transition }: Props) {
+export function Pipeline({ snapshot, transition, onNodeClick }: Props) {
   const currentIndex = HARNESS_STATES.indexOf(snapshot.state);
   const isDeployFailed = snapshot.meta.deployFailed;
   const isPrClosed = snapshot.meta.prClosed;
+  const isCancelled = snapshot.meta.issueCancelled;
 
   return (
     <div style={{ position: 'relative' }}>
       <div style={{
+        position: 'absolute',
+        top: 8,
+        left: '50%',
+        transform: 'translateX(-50%)',
+        padding: '6px 12px',
+        background: 'var(--bg-deep)',
+        border: '2px solid var(--accent-lime)',
+        color: 'var(--accent-lime)',
+        fontFamily: 'var(--font-heading)',
+        fontSize: 8,
+        whiteSpace: 'nowrap',
+        zIndex: 1,
+      }}>
+        END-TO-END: {formatTotalDuration(snapshot.totalDurationMs)}
+      </div>
+
+      <div style={{
         display: 'flex',
-        alignItems: 'center',
-        padding: '48px 24px 60px',
+        alignItems: 'flex-start',
+        padding: '56px 24px 60px',
         justifyContent: 'center',
         minWidth: 900,
       }}>
@@ -169,13 +231,15 @@ export function Pipeline({ snapshot, transition }: Props) {
             (state === 'agent_picked_up' && isPrClosed);
 
           return (
-            <span key={state} style={{ display: 'flex', alignItems: 'center', flex: idx < HARNESS_STATES.length - 1 ? 1 : 'none' }}>
+            <span key={state} style={{ display: 'flex', alignItems: 'flex-start', flex: idx < HARNESS_STATES.length - 1 ? 1 : 'none' }}>
               <NodeCard
                 state={state}
                 currentIndex={currentIndex}
                 stateIndex={idx}
                 enteredAt={snapshot.perNode[state]?.enteredAt ?? null}
                 isFailed={isFailed}
+                isCancelled={isCancelled && idx === currentIndex}
+                onClick={() => onNodeClick(state)}
               />
               {idx < HARNESS_STATES.length - 1 && (
                 <Pipe active={idx < currentIndex} direction="right" />

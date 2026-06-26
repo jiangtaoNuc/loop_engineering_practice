@@ -42,6 +42,14 @@ export interface HarnessMeta {
   prMerged: boolean;
   prClosed: boolean;
   deployFailed: boolean;
+  issueCancelled: boolean;
+  prTitle: string | null;
+  prMergedAt: string | null;
+  prMergeSha: string | null;
+  prReviewDecision: 'APPROVED' | 'CHANGES_REQUESTED' | 'COMMENTED' | null;
+  deployConclusion: string | null;
+  deployStartedAt: string | null;
+  deployCompletedAt: string | null;
 }
 
 export interface HarnessSnapshot {
@@ -56,6 +64,16 @@ export interface HarnessSnapshot {
   etag: string;
 }
 
+export interface CodingStats {
+  available: boolean;
+  toolCalls: number;
+  tokensIn: number;
+  tokensOut: number;
+  turns: number;
+  sampleCommentId?: string;
+  sampleAt?: string;
+}
+
 export interface IssueSummary {
   id: string;
   identifier: string;
@@ -64,9 +82,45 @@ export interface IssueSummary {
   updatedAt: string;
 }
 
+export type IssueStatus =
+  | 'todo'
+  | 'in_progress'
+  | 'in_review'
+  | 'done'
+  | 'blocked'
+  | 'backlog'
+  | 'cancelled';
+
+export const ISSUE_STATUSES: IssueStatus[] = [
+  'todo',
+  'in_progress',
+  'in_review',
+  'done',
+  'blocked',
+  'backlog',
+  'cancelled',
+];
+
+export const ISSUE_STATUS_LABELS: Record<IssueStatus, string> = {
+  todo: 'TODO',
+  in_progress: 'IN PROGRESS',
+  in_review: 'IN REVIEW',
+  done: 'DONE',
+  blocked: 'BLOCKED',
+  backlog: 'BACKLOG',
+  cancelled: 'CANCELLED',
+};
+
+export const STATUS_FILTER_ALL = 'all';
+
+export interface IssueListQuery {
+  includeAutopilot?: boolean;
+}
+
 export interface IssuesListResponse {
   issues: IssueSummary[];
   etag: string;
+  degraded?: boolean;
 }
 
 export interface HealthResponse {

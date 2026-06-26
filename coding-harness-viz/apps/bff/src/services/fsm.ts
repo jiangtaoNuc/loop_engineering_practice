@@ -7,10 +7,11 @@ import type {
 import { HARNESS_STATES } from '@coding-harness/shared';
 import type { MulticaIssue, MulticaComment, MulticaMetadata } from './multica-cli.js';
 import type { PrInfo, DeployInfo } from './github.js';
+import type { Transition } from './transitions.js';
 
-const PR_URL_RE = /https?:\/\/github\.com\/[^/]+\/[^/]+\/pull\/\d+/;
+export const PR_URL_RE = /https?:\/\/github\.com\/[^/]+\/[^/]+\/pull\/\d+/;
 
-function extractPrUrl(metadata: MulticaMetadata, comments: MulticaComment[]): string | null {
+export function extractPrUrl(metadata: MulticaMetadata, comments: MulticaComment[]): string | null {
   if (metadata.pr_url && typeof metadata.pr_url === 'string') return metadata.pr_url;
   for (const c of comments) {
     const match = c.content.match(PR_URL_RE);
@@ -37,6 +38,15 @@ export function deriveState(
   const hasPr = prUrl != null;
 
   if (!hasAgent) return { state: 'issue_created', prUrl };
+
+  if (issue.status === 'done') {
+    if (deployInfo?.conclusion === 'success') return { state: 'deployed', prUrl };
+    if (prInfo?.merged) return { state: 'pr_merged', prUrl };
+    return { state: 'deployed', prUrl };
+  }
+  if (issue.status === 'cancelled' && !hasPr) {
+    return { state: 'issue_created', prUrl };
+  }
 
   if (!hasPr) return { state: 'agent_picked_up', prUrl };
 
@@ -91,6 +101,7 @@ export function buildSnapshot(
   prInfo: PrInfo | null,
   deployInfo: DeployInfo | null,
   agentName: string | null,
+  transitions: Transition[] = [],
 ): HarnessSnapshot {
   const { state, prUrl } = deriveState(issue, comments, metadata, prInfo, deployInfo);
   const timestamps = computeNodeTimestamps(issue, comments, prInfo, deployInfo);
@@ -112,10 +123,25 @@ export function buildSnapshot(
     prMerged: prInfo?.merged ?? false,
     prClosed: prInfo != null && prInfo.state === 'closed' && !prInfo.merged,
     deployFailed: deployInfo?.conclusion === 'failure',
+    issueCancelled: issue.status === 'cancelled',
+    prTitle: prInfo?.title ?? null,
+    prMergedAt: prInfo?.mergedAt ?? null,
+    prMergeSha: prInfo?.mergeCommitSha ?? null,
+    prReviewDecision: prInfo?.reviewDecision ?? null,
+    deployConclusion: deployInfo?.conclusion ?? null,
+    deployStartedAt: deployInfo?.startedAt ?? null,
+    deployCompletedAt: deployInfo?.completedAt ?? null,
   };
 
+  const currentNode = perNode[state];
   const etag = Buffer.from(
-    JSON.stringify({ s: state, u: issue.updated_at, d: deployInfo?.conclusion }),
+    JSON.stringify({
+      s: state,
+      u: issue.updated_at,
+      d: deployInfo?.conclusion,
+      e: currentNode?.enteredAt,
+      l: currentNode?.leftAt,
+    }),
   ).toString('base64url').slice(0, 32);
 
   return {
