@@ -14,15 +14,6 @@ function formatDateTime(iso: string | null): string {
   return `${yyyy}-${mm}-${dd} ${hh}:${mi}:${ss}`;
 }
 
-function formatDuration(ms: number): string {
-  const s = Math.floor(ms / 1000);
-  const m = Math.floor(s / 60);
-  const h = Math.floor(m / 60);
-  if (h > 0) return `${h}h ${m % 60}m ${String(s % 60).padStart(2, '0')}s`;
-  if (m > 0) return `${m}m ${String(s % 60).padStart(2, '0')}s`;
-  return `${String(s).padStart(2, '0')}s`;
-}
-
 function label(labelText: string, value: React.ReactNode) {
   return (
     <div style={{ marginBottom: 12 }}>
@@ -136,14 +127,12 @@ export function NodeDetailModal({ snapshot, state, stats, loadingStats, onClose 
           <>
             {label('AGENT', snapshot.meta.assignee ?? '--')}
             {label('STARTED AT', formatDateTime(node.enteredAt))}
-            {label('DURATION', formatDuration(node.stayedMs))}
           </>
         )}
 
         {state === 'coding' && (
           <>
             {label('STARTED AT', formatDateTime(node.enteredAt))}
-            {label('DURATION', formatDuration(node.stayedMs))}
             <div style={{ marginTop: 16, borderTop: '2px solid var(--ink-muted)', paddingTop: 12 }}>
               <div style={{
                 fontFamily: 'var(--font-heading)',
@@ -196,6 +185,13 @@ export function NodeDetailModal({ snapshot, state, stats, loadingStats, onClose 
             {label('MERGED AT', formatDateTime(snapshot.meta.prMergedAt))}
             {label('MERGE SHA', snapshot.meta.prMergeSha ?? '--')}
             {label('REVIEW DECISION', snapshot.meta.prReviewDecision ?? '--')}
+          </>
+        )}
+
+        {state === 'ci' && (
+          <>
+            {label('TRIGGERED AT', formatDateTime(node.enteredAt))}
+            {label('CI STATUS', snapshot.meta.ciStatus ?? '--')}
           </>
         )}
 

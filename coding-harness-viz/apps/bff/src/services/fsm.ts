@@ -140,16 +140,19 @@ export function buildSnapshot(
       u: issue.updated_at,
       d: deployInfo?.conclusion,
       e: currentNode?.enteredAt,
-      l: currentNode?.leftAt,
     }),
   ).toString('base64url').slice(0, 32);
 
+  const now = Date.now();
   return {
     issueId: issue.id,
     identifier: issue.identifier,
     title: issue.title,
     state,
     enteredAt: timestamps[state] ?? issue.created_at,
+    totalDurationMs: now - new Date(issue.created_at).getTime(),
+    creatorType: issue.creator_type ?? null,
+    creatorId: issue.creator_id ?? null,
     perNode,
     meta,
     degraded: false,

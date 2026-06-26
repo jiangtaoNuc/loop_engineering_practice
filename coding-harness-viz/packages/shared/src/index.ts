@@ -58,6 +58,9 @@ export interface HarnessSnapshot {
   title: string;
   state: HarnessState;
   enteredAt: string | null;
+  totalDurationMs: number;
+  creatorType: string | null;
+  creatorId: string | null;
   perNode: Record<HarnessState, NodeStatus>;
   meta: HarnessMeta;
   degraded: boolean;

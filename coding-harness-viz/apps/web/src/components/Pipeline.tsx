@@ -59,7 +59,7 @@ interface NodeCardProps {
   onClick: () => void;
 }
 
-function NodeCard({ state, currentIndex, stateIndex, enteredAt, isFailed }: NodeCardProps) {
+function NodeCard({ state, currentIndex, stateIndex, enteredAt, isFailed, isCancelled, onClick }: NodeCardProps) {
   const [showLightUp, setShowLightUp] = useState(false);
   const isCompleted = stateIndex < currentIndex;
   const isCurrent = stateIndex === currentIndex;
@@ -109,6 +109,7 @@ function NodeCard({ state, currentIndex, stateIndex, enteredAt, isFailed }: Node
   return (
     <div
       className={animClass}
+      onClick={onClick}
       title={`${STATE_LABELS[state]}: ${formatFullTimestamp(enteredAt)}`}
       style={{
         width: 'var(--node-size)',
@@ -131,6 +132,7 @@ function NodeCard({ state, currentIndex, stateIndex, enteredAt, isFailed }: Node
         imageRendering: 'pixelated',
         flexShrink: 0,
         padding: '4px 6px',
+        cursor: 'pointer',
       }}
     >
       <span style={{
