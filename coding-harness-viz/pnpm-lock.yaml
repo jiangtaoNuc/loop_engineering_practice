@@ -73,6 +73,9 @@ importers:
       vite:
         specifier: ^4.5.0
         version: 4.5.14(@types/node@18.19.130)
+      vitest:
+        specifier: ^0.34.0
+        version: 0.34.6
 
   packages/shared:
     devDependencies:
