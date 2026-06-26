@@ -1,4 +1,5 @@
 import { Octokit } from '@octokit/rest';
+import { fetch as undiciFetch } from 'undici';
 import { cache } from './cache.js';
 
 const GITHUB_TTL_MS = 10_000;
@@ -9,7 +10,10 @@ function getClient(): Octokit | null {
   if (octokit) return octokit;
   const token = process.env.GITHUB_TOKEN;
   if (!token || token === 'ghp_your_token_here') return null;
-  octokit = new Octokit({ auth: token });
+  octokit = new Octokit({
+    auth: token,
+    request: { fetch: undiciFetch as unknown as typeof fetch },
+  });
   return octokit;
 }
 
