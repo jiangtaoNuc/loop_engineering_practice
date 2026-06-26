@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useIssues, useHarness, useCodingStats } from './hooks/useHarness';
 import { IssueTabs } from './components/IssueTabs';
 import { StatusFilter } from './components/StatusFilter';
@@ -7,6 +7,18 @@ import { Sidebar } from './components/Sidebar';
 import { Banner } from './components/Banner';
 import { NodeDetailModal } from './components/NodeDetailModal';
 import type { HarnessState } from '@coding-harness/shared';
+import { STATUS_FILTER_ALL, ISSUE_STATUSES } from '@coding-harness/shared';
+
+const LS_KEY = 'chv:includeAutopilot';
+
+function getInitialStatusFilter(): string {
+  const params = new URLSearchParams(window.location.search);
+  const fromUrl = params.get('status');
+  if (fromUrl && (fromUrl === STATUS_FILTER_ALL || (ISSUE_STATUSES as string[]).includes(fromUrl))) {
+    return fromUrl;
+  }
+  return STATUS_FILTER_ALL;
+}
 
 export function App() {
   const [includeAutopilot, setIncludeAutopilot] = useState<boolean>(
