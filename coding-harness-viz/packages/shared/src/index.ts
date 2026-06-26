@@ -50,6 +50,7 @@ export interface HarnessMeta {
   prMerged: boolean;
   prClosed: boolean;
   deployFailed: boolean;
+  issueCancelled: boolean;
 }
 
 export interface HarnessSnapshot {

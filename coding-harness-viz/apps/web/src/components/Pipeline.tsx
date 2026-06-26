@@ -19,9 +19,10 @@ interface NodeCardProps {
   stateIndex: number;
   stayedMs: number;
   isFailed: boolean;
+  isCancelled: boolean;
 }
 
-function NodeCard({ state, currentIndex, stateIndex, stayedMs, isFailed }: NodeCardProps) {
+function NodeCard({ state, currentIndex, stateIndex, stayedMs, isFailed, isCancelled }: NodeCardProps) {
   const [showLightUp, setShowLightUp] = useState(false);
   const isCompleted = stateIndex < currentIndex;
   const isCurrent = stateIndex === currentIndex;
@@ -38,10 +39,22 @@ function NodeCard({ state, currentIndex, stateIndex, stayedMs, isFailed }: NodeC
   const bg = isCompleted
     ? 'var(--accent-lime)'
     : isCurrent
-    ? 'var(--accent-cyan)'
+    ? isCancelled
+      ? 'var(--ink-muted)'
+      : 'var(--accent-cyan)'
     : 'var(--ink-muted)';
 
   const textColor = isCompleted || isCurrent ? 'var(--bg-deep)' : 'var(--text-dust)';
+
+  const borderColor = isFailed
+    ? 'var(--accent-red)'
+    : isCurrent
+    ? isCancelled
+      ? 'var(--ink-muted)'
+      : 'var(--accent-cyan)'
+    : isCompleted
+    ? 'var(--accent-lime)'
+    : 'var(--ink-muted)';
 
   const animClass = isCurrent
     ? 'anim-heartbeat'
@@ -56,7 +69,7 @@ function NodeCard({ state, currentIndex, stateIndex, stayedMs, isFailed }: NodeC
         width: 'var(--node-size)',
         height: 'var(--node-size)',
         background: bg,
-        border: `4px solid ${isFailed ? 'var(--accent-red)' : isCurrent ? 'var(--accent-cyan)' : isCompleted ? 'var(--accent-lime)' : 'var(--ink-muted)'}`,
+        border: `4px solid ${borderColor}`,
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
@@ -146,6 +159,7 @@ export function Pipeline({ snapshot, transition }: Props) {
   const currentIndex = HARNESS_STATES.indexOf(snapshot.state);
   const isDeployFailed = snapshot.meta.deployFailed;
   const isPrClosed = snapshot.meta.prClosed;
+  const isCancelled = snapshot.meta.issueCancelled;
 
   return (
     <div style={{ position: 'relative' }}>
@@ -169,6 +183,7 @@ export function Pipeline({ snapshot, transition }: Props) {
                 stateIndex={idx}
                 stayedMs={snapshot.perNode[state]?.stayedMs ?? 0}
                 isFailed={isFailed}
+                isCancelled={isCancelled && idx === currentIndex}
               />
               {idx < HARNESS_STATES.length - 1 && (
                 <Pipe active={idx < currentIndex} direction="right" />
