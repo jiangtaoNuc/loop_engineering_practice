@@ -13,15 +13,38 @@ function formatDuration(ms: number): string {
   return `${s}s`;
 }
 
+function formatTotalDuration(ms: number): string {
+  const totalSeconds = Math.floor(ms / 1000);
+  const s = totalSeconds % 60;
+  const m = Math.floor(totalSeconds / 60) % 60;
+  const h = Math.floor(totalSeconds / 3600);
+  if (h > 0) return `${h}h ${m}m ${String(s).padStart(2, '0')}s`;
+  if (m > 0) return `${m}m ${String(s).padStart(2, '0')}s`;
+  return `${String(s).padStart(2, '0')}s`;
+}
+
+function formatDateTime(iso: string | null): string {
+  if (!iso) return '--';
+  const d = new Date(iso);
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mi = String(d.getMinutes()).padStart(2, '0');
+  const ss = String(d.getSeconds()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd} ${hh}:${mi}:${ss}`;
+}
+
 interface NodeCardProps {
   state: HarnessState;
   currentIndex: number;
   stateIndex: number;
-  stayedMs: number;
+  node: { enteredAt: string | null; leftAt: string | null; stayedMs: number };
   isFailed: boolean;
+  onClick: () => void;
 }
 
-function NodeCard({ state, currentIndex, stateIndex, stayedMs, isFailed }: NodeCardProps) {
+function NodeCard({ state, currentIndex, stateIndex, node, isFailed, onClick }: NodeCardProps) {
   const [showLightUp, setShowLightUp] = useState(false);
   const isCompleted = stateIndex < currentIndex;
   const isCurrent = stateIndex === currentIndex;
@@ -49,65 +72,96 @@ function NodeCard({ state, currentIndex, stateIndex, stayedMs, isFailed }: NodeC
     ? 'anim-shake'
     : '';
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      onClick();
+    }
+  };
+
   return (
-    <div
-      className={animClass}
-      style={{
-        width: 'var(--node-size)',
-        height: 'var(--node-size)',
-        background: bg,
-        border: `4px solid ${isFailed ? 'var(--accent-red)' : isCurrent ? 'var(--accent-cyan)' : isCompleted ? 'var(--accent-lime)' : 'var(--ink-muted)'}`,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 2,
-        position: 'relative',
-        animation: isCurrent
-          ? 'heartbeat 1.2s steps(8) infinite'
-          : isFailed
-          ? 'failShake 0.4s steps(6) 3'
-          : showLightUp
-          ? 'nodeLightUp 1s steps(12) 1'
-          : 'none',
-        imageRendering: 'pixelated',
-        flexShrink: 0,
-      }}
-    >
-      <span style={{
-        fontFamily: 'var(--font-heading)',
-        fontSize: 8,
-        color: textColor,
-        textAlign: 'center',
-        lineHeight: 1.2,
-      }}>
-        {STATE_SHORT[state]}
-      </span>
-      {isCompleted && (
-        <span style={{ fontSize: 16, color: 'var(--bg-deep)' }}>✓</span>
-      )}
-      {isCurrent && (
-        <span style={{ fontSize: 12, color: 'var(--bg-deep)' }}>●</span>
-      )}
-      <span style={{
-        fontFamily: 'var(--font-body)',
-        fontSize: 14,
-        color: textColor,
-        position: 'absolute',
-        bottom: -24,
-        whiteSpace: 'nowrap',
-      }}>
-        {formatDuration(isCurrent || isCompleted ? stayedMs : 0)}
-      </span>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+      <div
+        role="button"
+        tabIndex={0}
+        aria-label={`${STATE_LABELS[state]} details`}
+        onClick={onClick}
+        onKeyDown={handleKeyDown}
+        className={animClass}
+        style={{
+          width: 'var(--node-size)',
+          height: 'var(--node-size)',
+          background: bg,
+          border: `4px solid ${isFailed ? 'var(--accent-red)' : isCurrent ? 'var(--accent-cyan)' : isCompleted ? 'var(--accent-lime)' : 'var(--ink-muted)'}`,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 2,
+          position: 'relative',
+          animation: isCurrent
+            ? 'heartbeat 1.2s steps(8) infinite'
+            : isFailed
+            ? 'failShake 0.4s steps(6) 3'
+            : showLightUp
+            ? 'nodeLightUp 1s steps(12) 1'
+            : 'none',
+          imageRendering: 'pixelated',
+          flexShrink: 0,
+          cursor: 'pointer',
+          outline: 'none',
+        }}
+      >
+        <span style={{
+          fontFamily: 'var(--font-heading)',
+          fontSize: 8,
+          color: textColor,
+          textAlign: 'center',
+          lineHeight: 1.2,
+        }}>
+          {STATE_SHORT[state]}
+        </span>
+        {isCompleted && (
+          <span style={{ fontSize: 16, color: 'var(--bg-deep)' }}>✓</span>
+        )}
+        {isCurrent && (
+          <span style={{ fontSize: 12, color: 'var(--bg-deep)' }}>●</span>
+        )}
+      </div>
+
       <span style={{
         fontFamily: 'var(--font-body)',
         fontSize: 13,
         color: 'var(--text-dust)',
-        position: 'absolute',
-        bottom: -42,
+        marginTop: 12,
         whiteSpace: 'nowrap',
       }}>
         {STATE_LABELS[state]}
+      </span>
+
+      <span style={{
+        fontFamily: 'var(--font-body)',
+        fontSize: 12,
+        color: 'var(--text-dust)',
+        whiteSpace: 'nowrap',
+      }}>
+        START {formatDateTime(isPending ? null : node.enteredAt)}
+      </span>
+      <span style={{
+        fontFamily: 'var(--font-body)',
+        fontSize: 12,
+        color: 'var(--text-dust)',
+        whiteSpace: 'nowrap',
+      }}>
+        END {formatDateTime(isPending ? null : node.leftAt)}
+      </span>
+      <span style={{
+        fontFamily: 'var(--font-body)',
+        fontSize: 12,
+        color: isCurrent ? 'var(--accent-cyan)' : 'var(--text-dust)',
+        whiteSpace: 'nowrap',
+      }}>
+        DURATION {isPending ? '--' : formatDuration(node.stayedMs)}
       </span>
     </div>
   );
@@ -140,9 +194,10 @@ function Pipe({ active }: PipeProps) {
 interface Props {
   snapshot: HarnessSnapshot;
   transition: { from: string; to: string } | null;
+  onNodeClick: (state: HarnessState) => void;
 }
 
-export function Pipeline({ snapshot, transition }: Props) {
+export function Pipeline({ snapshot, transition, onNodeClick }: Props) {
   const currentIndex = HARNESS_STATES.indexOf(snapshot.state);
   const isDeployFailed = snapshot.meta.deployFailed;
   const isPrClosed = snapshot.meta.prClosed;
@@ -150,9 +205,26 @@ export function Pipeline({ snapshot, transition }: Props) {
   return (
     <div style={{ position: 'relative' }}>
       <div style={{
+        position: 'absolute',
+        top: 8,
+        left: '50%',
+        transform: 'translateX(-50%)',
+        padding: '6px 12px',
+        background: 'var(--bg-deep)',
+        border: '2px solid var(--accent-lime)',
+        color: 'var(--accent-lime)',
+        fontFamily: 'var(--font-heading)',
+        fontSize: 8,
+        whiteSpace: 'nowrap',
+        zIndex: 1,
+      }}>
+        END-TO-END: {formatTotalDuration(snapshot.totalDurationMs)}
+      </div>
+
+      <div style={{
         display: 'flex',
-        alignItems: 'center',
-        padding: '48px 24px 60px',
+        alignItems: 'flex-start',
+        padding: '56px 24px 60px',
         justifyContent: 'center',
         minWidth: 700,
       }}>
@@ -162,13 +234,14 @@ export function Pipeline({ snapshot, transition }: Props) {
             (state === 'agent_picked_up' && isPrClosed);
 
           return (
-            <span key={state} style={{ display: 'flex', alignItems: 'center', flex: idx < HARNESS_STATES.length - 1 ? 1 : 'none' }}>
+            <span key={state} style={{ display: 'flex', alignItems: 'flex-start', flex: idx < HARNESS_STATES.length - 1 ? 1 : 'none' }}>
               <NodeCard
                 state={state}
                 currentIndex={currentIndex}
                 stateIndex={idx}
-                stayedMs={snapshot.perNode[state]?.stayedMs ?? 0}
+                node={snapshot.perNode[state] ?? { enteredAt: null, leftAt: null, stayedMs: 0 }}
                 isFailed={isFailed}
+                onClick={() => onNodeClick(state)}
               />
               {idx < HARNESS_STATES.length - 1 && (
                 <Pipe active={idx < currentIndex} direction="right" />

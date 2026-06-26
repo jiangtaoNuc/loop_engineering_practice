@@ -38,6 +38,7 @@ export interface NodeStatus {
   enteredAt: string | null;
   leftAt: string | null;
   stayedMs: number;
+  durationSec: number;
 }
 
 export interface HarnessMeta {
@@ -50,6 +51,13 @@ export interface HarnessMeta {
   prMerged: boolean;
   prClosed: boolean;
   deployFailed: boolean;
+  prTitle: string | null;
+  prMergedAt: string | null;
+  prMergeSha: string | null;
+  prReviewDecision: 'APPROVED' | 'CHANGES_REQUESTED' | 'COMMENTED' | null;
+  deployConclusion: string | null;
+  deployStartedAt: string | null;
+  deployCompletedAt: string | null;
 }
 
 export interface HarnessSnapshot {
@@ -59,10 +67,23 @@ export interface HarnessSnapshot {
   state: HarnessState;
   enteredAt: string | null;
   stayedMs: number;
+  totalDurationMs: number;
+  creatorId: string | null;
+  creatorType: string | null;
   perNode: Record<HarnessState, NodeStatus>;
   meta: HarnessMeta;
   degraded: boolean;
   etag: string;
+}
+
+export interface CodingStats {
+  available: boolean;
+  toolCalls: number;
+  tokensIn: number;
+  tokensOut: number;
+  turns: number;
+  sampleCommentId?: string;
+  sampleAt?: string;
 }
 
 export interface IssueSummary {

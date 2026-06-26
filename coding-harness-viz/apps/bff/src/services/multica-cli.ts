@@ -45,6 +45,8 @@ export interface MulticaIssue {
   status: string;
   assignee_id: string | null;
   assignee_type: string | null;
+  creator_id: string | null;
+  creator_type: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -83,6 +85,15 @@ export async function getComments(id: string): Promise<MulticaComment[]> {
   const raw = await runMultica([
     'issue', 'comment', 'list', id,
     '--recent', '10',
+    '--output', 'json',
+  ]);
+  return JSON.parse(raw);
+}
+
+export async function getCommentsForCodingStats(id: string): Promise<MulticaComment[]> {
+  const raw = await runMultica([
+    'issue', 'comment', 'list', id,
+    '--recent', '50',
     '--output', 'json',
   ]);
   return JSON.parse(raw);

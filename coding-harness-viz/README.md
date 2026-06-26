@@ -103,6 +103,35 @@ Each test suite starts BFF in mock mode with its fixture, then runs the Playwrig
 - AC-06: Deploy success triggers rocket animation, S6 highlighted
 - AC-11: Clicking issue tab switches pipeline within 300ms, URL syncs
 
+## Pipeline Detail Telemetry
+
+The harness now persists state-transition history locally and can surface AI coding telemetry in the node detail modal.
+
+### Transitions persistence
+
+When `GET /api/issues/:id/harness` is called, the BFF compares the derived FSM state with the last recorded transition. If it changed, a new transition is appended to:
+
+```
+apps/bff/data/transitions/<issueId>.json
+```
+
+The base directory can be overridden with `HARNESS_DATA_DIR`. Writes are atomic (`.tmp` + `rename`) and each file is capped at 200 transitions. These files are ignored by `.gitignore` and should not be committed.
+
+### Coding stats footer protocol
+
+Agents can self-report coding telemetry by including an HTML comment footer in any comment:
+
+```
+<!-- coding-stats
+tool_calls: 42
+tokens_in: 12345
+tokens_out: 6789
+turns: 5
+-->
+```
+
+`GET /api/issues/:id/coding-stats` scans the 50 most recent comments and returns the latest agent-reported block. The frontend fetches this lazily when the **coding** node detail modal is opened.
+
 ## Deployment
 
 The project deploys to a Multica ECS host via GitHub Actions. Two workflows live in `.github/workflows/`:
