@@ -2,8 +2,8 @@
 set -euo pipefail
 
 # bootstrap.sh — one-time ECS onboarding script for coding-harness-viz
+# Compatible with CentOS 7 (glibc 2.17) — uses nvm + Node 16 + pnpm 8
 # Run as root: sudo bash bootstrap.sh
-# Not called by CI; for manual ops onboarding only.
 
 DEPLOY_DIR="/srv/coding-harness-viz"
 SERVICE_NAME="coding-harness-viz-bff"
@@ -74,7 +74,6 @@ version_ge() {
 }
 
 echo "=== coding-harness-viz bootstrap ==="
-echo ">> Detected distro: $DISTRO_ID (family: $PKG_FAMILY, package manager: $PKG_MANAGER)"
 
 # 1. Create deploy directories
 echo ">> Creating directories under $DEPLOY_DIR ..."
@@ -100,14 +99,28 @@ if ! command -v node &>/dev/null; then
         curl -fsSL "https://rpm.nodesource.com/setup_${NODE_MAJOR_VERSION}.x" | bash -
         "$PKG_MANAGER" install -y nodejs
     fi
+    source "$NVM_DIR/nvm.sh"
+    nvm install 16
+    nvm alias default 16
+    nvm use default
+    # Symlinks for systemd and other users
+    ln -sf "$(which node)" /usr/local/bin/node
+    ln -sf "$(which npm)" /usr/local/bin/npm
+    ln -sf "$(which npx)" /usr/local/bin/npx
+    echo ">> Node.js installed: $(node --version)"
 else
     echo ">> Node.js already installed: $(node --version)"
 fi
 
-# 3. Install pnpm globally if not present
+# Ensure nvm loaded
+export NVM_DIR="/root/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && source "$NVM_DIR/nvm.sh"
+
+# 3. Install pnpm 8 globally (pnpm 9 requires Node 18+)
 if ! command -v pnpm &>/dev/null; then
-    echo ">> Installing pnpm ..."
-    npm install -g pnpm@9
+    echo ">> Installing pnpm@8 ..."
+    npm install -g pnpm@8
+    ln -sf "$(which pnpm)" /usr/local/bin/pnpm
 else
     echo ">> pnpm already installed: $(pnpm --version)"
 fi
@@ -115,51 +128,41 @@ fi
 # 4. Install nginx if not present
 if ! command -v nginx &>/dev/null; then
     echo ">> Installing nginx ..."
-    if [[ "$PKG_FAMILY" == "debian" ]]; then
-        apt-get update && apt-get install -y nginx
+    if grep -q "CentOS" /etc/os-release 2>/dev/null; then
+        yum install -y epel-release
+        yum install -y nginx
     else
-        "$PKG_MANAGER" install -y nginx
+        apt-get update && apt-get install -y nginx
     fi
 else
     echo ">> nginx already installed: $(nginx -v 2>&1)"
 fi
 
-# 5. Copy systemd unit
-echo ">> Installing systemd unit ..."
-cp "$SCRIPT_DIR/coding-harness-viz-bff.service" /etc/systemd/system/
-systemctl daemon-reload
-systemctl enable "$SERVICE_NAME"
+# 5. Install Docker if not present (for BFF container)
+if ! command -v docker &>/dev/null; then
+    echo ">> Docker not found. Please install Docker first."
+    exit 1
+else
+    echo ">> Docker already installed: $(docker --version)"
+fi
 
-# 6. Copy nginx config (example — adjust server_name as needed)
+# 6. Copy nginx config (CentOS uses conf.d/, not sites-available/)
+NGINX_CONF="/etc/nginx/conf.d/coding-harness-viz.conf"
 echo ">> Installing nginx config to $NGINX_CONF ..."
 cp "$SCRIPT_DIR/nginx.conf.example" "$NGINX_CONF"
-if [[ "$PKG_FAMILY" == "debian" ]]; then
-    ln -sf "$NGINX_CONF" /etc/nginx/sites-enabled/coding-harness-viz
-    # Remove default site if present to avoid port conflict
-    rm -f /etc/nginx/sites-enabled/default
-else
-    # RHEL family keeps configs directly in conf.d
-    systemctl enable --now nginx
-fi
-nginx -t && nginx -s reload
-
-# 7. Optional SELinux / firewalld adjustments on RHEL family
-if [[ "$PKG_FAMILY" == "rhel" ]]; then
-    if command -v getenforce &>/dev/null && [[ "$(getenforce)" == "Enforcing" ]]; then
-        echo ">> SELinux enforcing; allowing nginx to make network connections ..."
-        setsebool -P httpd_can_network_connect 1
-    fi
-
-    if command -v firewall-cmd &>/dev/null && systemctl is-active --quiet firewalld; then
-        echo ">> firewalld active; adding http service ..."
-        firewall-cmd --permanent --add-service=http
-        firewall-cmd --reload
-    fi
-fi
+# Fix port if needed (default nginx.conf may conflict on port 80)
+rm -f /etc/nginx/conf.d/default.conf 2>/dev/null || true
+nginx -t && systemctl enable nginx && systemctl restart nginx
 
 echo ""
 echo "=== Bootstrap complete ==="
+echo "  node:   $(node --version)"
+echo "  pnpm:   $(pnpm --version)"
+echo "  nginx:  $(nginx -v 2>&1)"
+echo "  docker: $(docker --version)"
+echo ""
 echo "Next steps:"
-echo "  1. Configure GitHub repo secrets (ECS_SSH_HOST, ECS_SSH_USER, ECS_SSH_PORT, ECS_SSH_PRIVATE_KEY)"
-echo "  2. Trigger the deploy workflow from GitHub Actions"
-echo "  3. Verify: curl http://127.0.0.1:3300/api/health"
+echo "  1. Build BFF image: docker build -f Dockerfile.bff -t coding-harness-bff:latest ."
+echo "  2. Run BFF: docker run -d --name coding-harness-bff --restart always -p 127.0.0.1:3300:3300 coding-harness-bff:latest"
+echo "  3. Configure GitHub repo secrets and trigger deploy workflow"
+echo "  4. Verify: curl http://127.0.0.1:9000/api/health"
