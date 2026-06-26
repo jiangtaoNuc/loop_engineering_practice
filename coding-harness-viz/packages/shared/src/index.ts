@@ -51,6 +51,7 @@ export interface HarnessMeta {
   prMerged: boolean;
   prClosed: boolean;
   deployFailed: boolean;
+  issueCancelled: boolean;
   prTitle: string | null;
   prMergedAt: string | null;
   prMergeSha: string | null;

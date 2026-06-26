@@ -41,6 +41,10 @@ interface NodeCardProps {
   stateIndex: number;
   node: { enteredAt: string | null; leftAt: string | null; stayedMs: number };
   isFailed: boolean;
+  isCancelled: boolean;
+}
+
+function NodeCard({ state, currentIndex, stateIndex, stayedMs, isFailed, isCancelled }: NodeCardProps) {
   onClick: () => void;
 }
 
@@ -61,10 +65,22 @@ function NodeCard({ state, currentIndex, stateIndex, node, isFailed, onClick }: 
   const bg = isCompleted
     ? 'var(--accent-lime)'
     : isCurrent
-    ? 'var(--accent-cyan)'
+    ? isCancelled
+      ? 'var(--ink-muted)'
+      : 'var(--accent-cyan)'
     : 'var(--ink-muted)';
 
   const textColor = isCompleted || isCurrent ? 'var(--bg-deep)' : 'var(--text-dust)';
+
+  const borderColor = isFailed
+    ? 'var(--accent-red)'
+    : isCurrent
+    ? isCancelled
+      ? 'var(--ink-muted)'
+      : 'var(--accent-cyan)'
+    : isCompleted
+    ? 'var(--accent-lime)'
+    : 'var(--ink-muted)';
 
   const animClass = isCurrent
     ? 'anim-heartbeat'
@@ -80,6 +96,30 @@ function NodeCard({ state, currentIndex, stateIndex, node, isFailed, onClick }: 
   };
 
   return (
+    <div
+      className={animClass}
+      style={{
+        width: 'var(--node-size)',
+        height: 'var(--node-size)',
+        background: bg,
+        border: `4px solid ${borderColor}`,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 2,
+        position: 'relative',
+        animation: isCurrent
+          ? 'heartbeat 1.2s steps(8) infinite'
+          : isFailed
+          ? 'failShake 0.4s steps(6) 3'
+          : showLightUp
+          ? 'nodeLightUp 1s steps(12) 1'
+          : 'none',
+        imageRendering: 'pixelated',
+        flexShrink: 0,
+      }}
+    >
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
       <div
         role="button"
@@ -201,6 +241,7 @@ export function Pipeline({ snapshot, transition, onNodeClick }: Props) {
   const currentIndex = HARNESS_STATES.indexOf(snapshot.state);
   const isDeployFailed = snapshot.meta.deployFailed;
   const isPrClosed = snapshot.meta.prClosed;
+  const isCancelled = snapshot.meta.issueCancelled;
 
   return (
     <div style={{ position: 'relative' }}>
@@ -241,6 +282,7 @@ export function Pipeline({ snapshot, transition, onNodeClick }: Props) {
                 stateIndex={idx}
                 node={snapshot.perNode[state] ?? { enteredAt: null, leftAt: null, stayedMs: 0 }}
                 isFailed={isFailed}
+                isCancelled={isCancelled && idx === currentIndex}
                 onClick={() => onNodeClick(state)}
               />
               {idx < HARNESS_STATES.length - 1 && (

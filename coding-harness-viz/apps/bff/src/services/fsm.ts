@@ -39,6 +39,15 @@ export function deriveState(
 
   if (!hasAgent) return { state: 'issue_created', prUrl };
 
+  if (issue.status === 'done') {
+    if (deployInfo?.conclusion === 'success') return { state: 'deployed', prUrl };
+    if (prInfo?.merged) return { state: 'pr_merged', prUrl };
+    return { state: 'deployed', prUrl };
+  }
+  if (issue.status === 'cancelled' && !hasPr) {
+    return { state: 'issue_created', prUrl };
+  }
+
   if (!hasPr) return { state: 'agent_picked_up', prUrl };
 
   if (prInfo) {
@@ -138,6 +147,7 @@ export function buildSnapshot(
     prMerged: prInfo?.merged ?? false,
     prClosed: prInfo != null && prInfo.state === 'closed' && !prInfo.merged,
     deployFailed: deployInfo?.conclusion === 'failure',
+    issueCancelled: issue.status === 'cancelled',
     prTitle: prInfo?.title ?? null,
     prMergedAt: prInfo?.mergedAt ?? null,
     prMergeSha: prInfo?.mergeCommitSha ?? null,
