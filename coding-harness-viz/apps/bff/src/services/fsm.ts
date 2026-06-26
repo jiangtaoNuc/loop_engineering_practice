@@ -7,6 +7,7 @@ import type {
 import { HARNESS_STATES } from '@coding-harness/shared';
 import type { MulticaIssue, MulticaComment, MulticaMetadata } from './multica-cli.js';
 import type { PrInfo, DeployInfo } from './github.js';
+import type { Transition } from './transitions.js';
 
 const PR_URL_RE = /https?:\/\/github\.com\/[^/]+\/[^/]+\/pull\/\d+/;
 
@@ -62,23 +63,53 @@ export function deriveState(
   return { state: 'coding', prUrl };
 }
 
-function makeNodeStatus(
+function applyTransitions(
+  issue: MulticaIssue,
   state: HarnessState,
-  target: HarnessState,
-  enteredAt: string | null,
+  transitions: Transition[],
   now: number,
-): NodeStatus {
-  const idx = HARNESS_STATES.indexOf(state);
-  const tidx = HARNESS_STATES.indexOf(target);
+): { perNode: Record<HarnessState, NodeStatus>; totalDurationMs: number } {
+  const terminal = state === 'deployed' || issue.status === 'cancelled';
+  const endTime = terminal ? new Date(issue.updated_at).getTime() : now;
+  const totalDurationMs = Math.max(0, endTime - new Date(issue.created_at).getTime());
 
-  if (tidx < idx) {
-    return { state: target, enteredAt: null, leftAt: null, stayedMs: 0 };
+  const perNode = {} as Record<HarnessState, NodeStatus>;
+  for (const s of HARNESS_STATES) {
+    perNode[s] = { state: s, enteredAt: null, leftAt: null, stayedMs: 0, durationSec: 0 };
   }
-  if (tidx === idx) {
-    const entered = enteredAt ?? new Date().toISOString();
-    return { state: target, enteredAt: entered, leftAt: null, stayedMs: now - new Date(entered).getTime() };
+
+  perNode['issue_created'].enteredAt = issue.created_at;
+
+  for (const t of transitions) {
+    perNode[t.fromState].leftAt = t.at;
+    perNode[t.toState].enteredAt = t.at;
   }
-  return { state: target, enteredAt: enteredAt ?? null, leftAt: enteredAt ?? null, stayedMs: 0 };
+
+  const currentIdx = HARNESS_STATES.indexOf(state);
+  for (let i = 0; i < HARNESS_STATES.length; i++) {
+    const s = HARNESS_STATES[i];
+    const node = perNode[s];
+
+    if (i < currentIdx) {
+      if (node.enteredAt && node.leftAt) {
+        node.stayedMs = Math.max(0, new Date(node.leftAt).getTime() - new Date(node.enteredAt).getTime());
+      }
+    } else if (i === currentIdx) {
+      if (!node.enteredAt) {
+        node.enteredAt = issue.created_at;
+      }
+      node.leftAt = terminal ? issue.updated_at : null;
+      node.stayedMs = Math.max(0, endTime - new Date(node.enteredAt).getTime());
+    } else {
+      node.enteredAt = null;
+      node.leftAt = null;
+      node.stayedMs = 0;
+    }
+
+    node.durationSec = Math.floor(node.stayedMs / 1000);
+  }
+
+  return { perNode, totalDurationMs };
 }
 
 export function buildSnapshot(
@@ -88,15 +119,12 @@ export function buildSnapshot(
   prInfo: PrInfo | null,
   deployInfo: DeployInfo | null,
   agentName: string | null,
+  transitions: Transition[] = [],
 ): HarnessSnapshot {
   const now = Date.now();
   const { state, prUrl } = deriveState(issue, comments, metadata, prInfo, deployInfo);
 
-  const enteredAt = issue.created_at;
-  const perNode = {} as Record<HarnessState, NodeStatus>;
-  for (const s of HARNESS_STATES) {
-    perNode[s] = makeNodeStatus(state, s, enteredAt, now);
-  }
+  const { perNode, totalDurationMs } = applyTransitions(issue, state, transitions, now);
 
   const deployUrl = (metadata.deploy_url as string) ?? deployInfo?.runUrl ?? null;
 
@@ -110,10 +138,24 @@ export function buildSnapshot(
     prMerged: prInfo?.merged ?? false,
     prClosed: prInfo != null && prInfo.state === 'closed' && !prInfo.merged,
     deployFailed: deployInfo?.conclusion === 'failure',
+    prTitle: prInfo?.title ?? null,
+    prMergedAt: prInfo?.mergedAt ?? null,
+    prMergeSha: prInfo?.mergeCommitSha ?? null,
+    prReviewDecision: prInfo?.reviewDecision ?? null,
+    deployConclusion: deployInfo?.conclusion ?? null,
+    deployStartedAt: deployInfo?.startedAt ?? null,
+    deployCompletedAt: deployInfo?.completedAt ?? null,
   };
 
+  const currentNode = perNode[state];
   const etag = Buffer.from(
-    JSON.stringify({ s: state, u: issue.updated_at, d: deployInfo?.conclusion }),
+    JSON.stringify({
+      s: state,
+      u: issue.updated_at,
+      d: deployInfo?.conclusion,
+      e: currentNode?.enteredAt,
+      l: currentNode?.leftAt,
+    }),
   ).toString('base64url').slice(0, 32);
 
   return {
@@ -121,8 +163,11 @@ export function buildSnapshot(
     identifier: issue.identifier,
     title: issue.title,
     state,
-    enteredAt,
-    stayedMs: now - new Date(enteredAt).getTime(),
+    enteredAt: currentNode.enteredAt,
+    stayedMs: currentNode.stayedMs,
+    totalDurationMs,
+    creatorId: issue.creator_id ?? null,
+    creatorType: issue.creator_type ?? null,
     perNode,
     meta,
     degraded: false,

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import type { HarnessSnapshot, IssuesListResponse } from '@coding-harness/shared';
+import type { HarnessSnapshot, IssuesListResponse, CodingStats } from '@coding-harness/shared';
 
 const POLL_BASE = 7000;
 const POLL_TERMINAL = 30000;
@@ -106,4 +106,34 @@ export function useHarness(issueId: string | null) {
   }, [issueId, fetchSnapshot]);
 
   return { snapshot, error, transition };
+}
+
+export function useCodingStats(issueId: string | null) {
+  const [stats, setStats] = useState<CodingStats | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
+
+  const fetchStats = useCallback(async () => {
+    if (!issueId) return;
+    setLoading(true);
+    setError(false);
+    try {
+      const res = await fetch(`/api/issues/${issueId}/coding-stats`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const body: CodingStats = await res.json();
+      setStats(body);
+    } catch {
+      setError(true);
+      setStats({ available: false, toolCalls: 0, tokensIn: 0, tokensOut: 0, turns: 0 });
+    } finally {
+      setLoading(false);
+    }
+  }, [issueId]);
+
+  useEffect(() => {
+    setStats(null);
+    setError(false);
+  }, [issueId]);
+
+  return { stats, loading, error, fetchStats };
 }

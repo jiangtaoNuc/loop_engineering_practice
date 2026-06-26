@@ -1,14 +1,18 @@
 import { useState, useEffect } from 'react';
-import { useIssues, useHarness } from './hooks/useHarness';
+import { useIssues, useHarness, useCodingStats } from './hooks/useHarness';
 import { IssueTabs } from './components/IssueTabs';
 import { Pipeline } from './components/Pipeline';
 import { Sidebar } from './components/Sidebar';
 import { Banner } from './components/Banner';
+import { NodeDetailModal } from './components/NodeDetailModal';
+import type { HarnessState } from '@coding-harness/shared';
 
 export function App() {
   const { data: issuesData, error: issuesError } = useIssues();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const { snapshot, error: harnessError, transition } = useHarness(selectedId);
+  const [modalState, setModalState] = useState<HarnessState | null>(null);
+  const { stats, loading: loadingStats, fetchStats } = useCodingStats(selectedId);
 
   useEffect(() => {
     if (issuesData?.issues && !selectedId && issuesData.issues.length > 0) {
@@ -20,6 +24,12 @@ export function App() {
       setSelectedId(match?.id ?? issuesData.issues[0].id);
     }
   }, [issuesData, selectedId]);
+
+  useEffect(() => {
+    if (modalState === 'coding') {
+      fetchStats();
+    }
+  }, [modalState, fetchStats]);
 
   const handleSelect = (id: string) => {
     setSelectedId(id);
@@ -83,7 +93,11 @@ export function App() {
           padding: 16,
         }}>
           {snapshot ? (
-            <Pipeline snapshot={snapshot} transition={transition} />
+            <Pipeline
+              snapshot={snapshot}
+              transition={transition}
+              onNodeClick={setModalState}
+            />
           ) : (
             <div style={{
               fontFamily: 'var(--font-body)',
@@ -98,6 +112,16 @@ export function App() {
 
         {snapshot && <Sidebar snapshot={snapshot} />}
       </div>
+
+      {snapshot && modalState && (
+        <NodeDetailModal
+          snapshot={snapshot}
+          state={modalState}
+          stats={stats}
+          loadingStats={loadingStats}
+          onClose={() => setModalState(null)}
+        />
+      )}
     </div>
   );
 }

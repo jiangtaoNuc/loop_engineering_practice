@@ -1,8 +1,10 @@
 import type { FastifyInstance } from 'fastify';
-import type { IssuesListResponse, IssueSummary } from '@coding-harness/shared';
+import type { IssuesListResponse, IssueSummary, CodingStats } from '@coding-harness/shared';
 import * as multica from '../services/multica-cli.js';
 import * as github from '../services/github.js';
-import { buildSnapshot } from '../services/fsm.js';
+import { deriveState, buildSnapshot } from '../services/fsm.js';
+import { getTransitions, recordTransition } from '../services/transitions.js';
+import { extractCodingStats } from '../services/coding-stats.js';
 
 export async function issueRoutes(app: FastifyInstance): Promise<void> {
   app.get('/api/issues', async (_req, reply) => {
@@ -61,7 +63,15 @@ export async function issueRoutes(app: FastifyInstance): Promise<void> {
         agentName = agent?.name ?? null;
       }
 
-      const snapshot = buildSnapshot(issue, comments, metadata, prInfo, deployInfo, agentName);
+      const { state } = deriveState(issue, comments, metadata, prInfo, deployInfo);
+      const transitions = await getTransitions(id);
+      const lastToState = transitions[transitions.length - 1]?.toState ?? 'issue_created';
+      if (state !== lastToState) {
+        await recordTransition(id, lastToState, state, new Date().toISOString());
+        transitions.push({ fromState: lastToState, toState: state, at: new Date().toISOString() });
+      }
+
+      const snapshot = buildSnapshot(issue, comments, metadata, prInfo, deployInfo, agentName, transitions);
 
       const ifNoneMatch = req.headers['if-none-match'];
       if (ifNoneMatch === `"${snapshot.etag}"`) {
@@ -79,11 +89,39 @@ export async function issueRoutes(app: FastifyInstance): Promise<void> {
         state: 'issue_created',
         enteredAt: null,
         stayedMs: 0,
+        totalDurationMs: 0,
+        creatorId: null,
+        creatorType: null,
         perNode: {},
-        meta: { prUrl: null, deployUrl: null, assignee: null, lastComment: null, ciStatus: null, prDraft: false, prMerged: false, prClosed: false, deployFailed: false },
+        meta: {
+          prUrl: null, deployUrl: null, assignee: null, lastComment: null, ciStatus: null,
+          prDraft: false, prMerged: false, prClosed: false, deployFailed: false,
+          prTitle: null, prMergedAt: null, prMergeSha: null, prReviewDecision: null,
+          deployConclusion: null, deployStartedAt: null, deployCompletedAt: null,
+        },
         degraded: true,
         etag: 'error',
       });
+    }
+  });
+
+  app.get('/api/issues/:id/coding-stats', async (req, reply) => {
+    const { id } = req.params as { id: string };
+
+    try {
+      const comments = await multica.getCommentsForCodingStats(id);
+      const stats: CodingStats = extractCodingStats(comments);
+      return stats;
+    } catch (err) {
+      console.error(`GET /api/issues/${id}/coding-stats failed:`, err);
+      const stats: CodingStats = {
+        available: false,
+        toolCalls: 0,
+        tokensIn: 0,
+        tokensOut: 0,
+        turns: 0,
+      };
+      return reply.code(200).send(stats);
     }
   });
 }
