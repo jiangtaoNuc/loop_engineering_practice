@@ -24,6 +24,9 @@ export interface PrInfo {
   author: string;
   ciStatus: 'pass' | 'fail' | 'pending' | null;
   reviewDecision: 'APPROVED' | 'CHANGES_REQUESTED' | 'COMMENTED' | null;
+  createdAt: string | null;
+  mergedAt: string | null;
+  ciStartedAt: string | null;
 }
 
 export interface DeployInfo {
@@ -31,7 +34,6 @@ export interface DeployInfo {
   runUrl: string | null;
   deployUrl: string | null;
   startedAt: string | null;
-  completedAt: string | null;
 }
 
 export function parsePrUrl(url: string): { owner: string; repo: string; number: number } | null {
@@ -59,6 +61,7 @@ export async function getPrInfo(prUrl: string): Promise<PrInfo | null> {
     });
 
     let ciStatus: 'pass' | 'fail' | 'pending' | null = null;
+    let ciStartedAt: string | null = null;
     try {
       const { data: checks } = await client.checks.listForRef({
         owner: parsed.owner,
@@ -70,6 +73,12 @@ export async function getPrInfo(prUrl: string): Promise<PrInfo | null> {
         if (conclusions.some((c) => c === 'failure')) ciStatus = 'fail';
         else if (conclusions.every((c) => c === 'success')) ciStatus = 'pass';
         else ciStatus = 'pending';
+
+        const startedDates = checks.check_runs
+          .map((c) => c.started_at)
+          .filter((d): d is string => d != null)
+          .sort();
+        ciStartedAt = startedDates[0] ?? null;
       }
     } catch {
       // ignore check failures
@@ -103,6 +112,9 @@ export async function getPrInfo(prUrl: string): Promise<PrInfo | null> {
       author: pr.user?.login ?? 'unknown',
       ciStatus,
       reviewDecision,
+      createdAt: pr.created_at ?? null,
+      mergedAt: pr.merged_at ?? null,
+      ciStartedAt,
     };
 
     cache.set(key, info, GITHUB_TTL_MS);
@@ -143,8 +155,7 @@ export async function getDeployInfo(
       conclusion: run.conclusion,
       runUrl: run.html_url,
       deployUrl: null,
-      startedAt: run.run_started_at ?? run.created_at ?? null,
-      completedAt: run.updated_at ?? null,
+      startedAt: run.run_started_at ?? null,
     };
 
     cache.set(key, info, GITHUB_TTL_MS);

@@ -20,6 +20,25 @@ function getInitialStatusFilter(): string {
   return STATUS_FILTER_ALL;
 }
 
+function useClock() {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  return now;
+}
+
+function formatClock(d: Date): string {
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mi = String(d.getMinutes()).padStart(2, '0');
+  const ss = String(d.getSeconds()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd} ${hh}:${mi}:${ss}`;
+}
+
 export function App() {
   const [includeAutopilot, setIncludeAutopilot] = useState<boolean>(
     () => localStorage.getItem(LS_KEY) === '1'
@@ -28,27 +47,7 @@ export function App() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>(getInitialStatusFilter);
   const { snapshot, error: harnessError, transition } = useHarness(selectedId);
-  const [modalState, setModalState] = useState<HarnessState | null>(null);
-  const { stats, loading: loadingStats, fetchStats } = useCodingStats(selectedId);
-
-  const handleToggleAutopilot = useCallback(() => {
-    setIncludeAutopilot((prev) => {
-      const next = !prev;
-      localStorage.setItem(LS_KEY, next ? '1' : '0');
-      return next;
-    });
-  }, []);
-
-  const handleStatusChange = useCallback((status: string) => {
-    setStatusFilter(status);
-    const url = new URL(window.location.href);
-    if (status === STATUS_FILTER_ALL) {
-      url.searchParams.delete('status');
-    } else {
-      url.searchParams.set('status', status);
-    }
-    window.history.replaceState(null, '', url.toString());
-  }, []);
+  const now = useClock();
 
   useEffect(() => {
     if (issuesData?.issues && !selectedId && issuesData.issues.length > 0) {
@@ -105,6 +104,15 @@ export function App() {
         <span style={{ fontSize: 20 }}>▓▓▓</span>
         CODING HARNESS
         <span style={{ fontSize: 20 }}>▓▓▓</span>
+        <span style={{ flex: 1 }} />
+        <span style={{
+          fontFamily: 'var(--font-body)',
+          fontSize: 22,
+          color: 'var(--accent-lime)',
+          letterSpacing: 1,
+        }}>
+          {formatClock(now)}
+        </span>
       </header>
 
       {showBanner && (

@@ -124,10 +124,6 @@ export async function issueRoutes(app: FastifyInstance): Promise<void> {
         title: 'Error loading issue',
         state: 'issue_created',
         enteredAt: null,
-        stayedMs: 0,
-        totalDurationMs: 0,
-        creatorId: null,
-        creatorType: null,
         perNode: {},
         meta: {
           prUrl: null, deployUrl: null, assignee: null, lastComment: null, ciStatus: null,

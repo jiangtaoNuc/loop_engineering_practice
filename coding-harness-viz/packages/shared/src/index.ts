@@ -4,6 +4,7 @@ export type HarnessState =
   | 'coding'
   | 'pr_opened'
   | 'pr_merged'
+  | 'ci'
   | 'deployed';
 
 export const HARNESS_STATES: HarnessState[] = [
@@ -12,6 +13,7 @@ export const HARNESS_STATES: HarnessState[] = [
   'coding',
   'pr_opened',
   'pr_merged',
+  'ci',
   'deployed',
 ];
 
@@ -21,24 +23,13 @@ export const STATE_LABELS: Record<HarnessState, string> = {
   coding: 'Coding',
   pr_opened: 'PR Opened',
   pr_merged: 'PR Merged',
+  ci: 'CI',
   deployed: 'Deployed',
-};
-
-export const STATE_SHORT: Record<HarnessState, string> = {
-  issue_created: 'S1',
-  agent_picked_up: 'S2',
-  coding: 'S3',
-  pr_opened: 'S4',
-  pr_merged: 'S5',
-  deployed: 'S6',
 };
 
 export interface NodeStatus {
   state: HarnessState;
   enteredAt: string | null;
-  leftAt: string | null;
-  stayedMs: number;
-  durationSec: number;
 }
 
 export interface HarnessMeta {
@@ -67,10 +58,6 @@ export interface HarnessSnapshot {
   title: string;
   state: HarnessState;
   enteredAt: string | null;
-  stayedMs: number;
-  totalDurationMs: number;
-  creatorId: string | null;
-  creatorType: string | null;
   perNode: Record<HarnessState, NodeStatus>;
   meta: HarnessMeta;
   degraded: boolean;
