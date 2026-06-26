@@ -8,9 +8,11 @@ export async function issueRoutes(app: FastifyInstance): Promise<void> {
   app.get('/api/issues', async (_req, reply) => {
     try {
       const issues = await multica.listIssues();
+      const rank = (i: { created_at: string; updated_at: string }) =>
+        Math.max(new Date(i.created_at).getTime(), new Date(i.updated_at).getTime());
       const summaries: IssueSummary[] = issues
-        .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
-        .slice(0, 20)
+        .sort((a, b) => rank(b) - rank(a))
+        .slice(0, 60)
         .map((i) => ({
           id: i.id,
           identifier: i.identifier,
