@@ -38,9 +38,6 @@ jobs:
       - name: Build
         run: pnpm build
 
-      - name: Build shared package (for production runtime)
-        run: pnpm --filter @coding-harness/shared exec tsc
-
       - name: Upload deploy artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -168,9 +165,15 @@ jobs:
               fi
             fi
 
-            # --- Install production dependencies ---
+            # --- Install all dependencies (including devDependencies for build) ---
             cd "$DEPLOY_DIR/bff"
-            pnpm install --prod --frozen-lockfile
+            pnpm install --prod=false --frozen-lockfile
+
+            # --- Build on server (ensures shared/dist and bff/dist are fresh) ---
+            pnpm -r build
+
+            # --- Remove stale Docker container (was running old BFF code on port 3300) ---
+            docker rm -f coding-harness-bff || true
 
             # --- Restart BFF service ---
             systemctl restart coding-harness-viz-bff || {
