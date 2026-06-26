@@ -27,16 +27,6 @@ function formatFullTimestamp(iso: string | null): string {
   return `${yyyy}-${mm}-${dd} ${hh}:${mi}:${ss}`;
 }
 
-function formatTotalDuration(ms: number): string {
-  const totalSeconds = Math.floor(ms / 1000);
-  const s = totalSeconds % 60;
-  const m = Math.floor(totalSeconds / 60) % 60;
-  const h = Math.floor(totalSeconds / 3600);
-  if (h > 0) return `${h}h ${m}m ${String(s).padStart(2, '0')}s`;
-  if (m > 0) return `${m}m ${String(s).padStart(2, '0')}s`;
-  return `${String(s).padStart(2, '0')}s`;
-}
-
 function formatDateTime(iso: string | null): string {
   if (!iso) return '--';
   const d = new Date(iso);
@@ -203,23 +193,6 @@ export function Pipeline({ snapshot, transition, onNodeClick }: Props) {
 
   return (
     <div style={{ position: 'relative' }}>
-      <div style={{
-        position: 'absolute',
-        top: 8,
-        left: '50%',
-        transform: 'translateX(-50%)',
-        padding: '6px 12px',
-        background: 'var(--bg-deep)',
-        border: '2px solid var(--accent-lime)',
-        color: 'var(--accent-lime)',
-        fontFamily: 'var(--font-heading)',
-        fontSize: 8,
-        whiteSpace: 'nowrap',
-        zIndex: 1,
-      }}>
-        END-TO-END: {formatTotalDuration(snapshot.totalDurationMs)}
-      </div>
-
       <div style={{
         display: 'flex',
         alignItems: 'flex-start',
