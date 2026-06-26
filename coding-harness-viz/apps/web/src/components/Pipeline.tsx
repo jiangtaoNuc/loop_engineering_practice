@@ -1,27 +1,41 @@
 import { useState, useEffect } from 'react';
 import type { HarnessSnapshot } from '@coding-harness/shared';
-import { HARNESS_STATES, STATE_LABELS, STATE_SHORT } from '@coding-harness/shared';
+import { HARNESS_STATES, STATE_LABELS } from '@coding-harness/shared';
 import type { HarnessState } from '@coding-harness/shared';
 
-function formatDuration(ms: number): string {
-  if (ms <= 0) return '--';
-  const s = Math.floor(ms / 1000);
-  const m = Math.floor(s / 60);
-  const h = Math.floor(m / 60);
-  if (h > 0) return `${h}h ${m % 60}m`;
-  if (m > 0) return `${m}m ${s % 60}s`;
-  return `${s}s`;
+function formatTimestamp(iso: string | null): string {
+  if (!iso) return '--';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '--';
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mi = String(d.getMinutes()).padStart(2, '0');
+  return `${mm}/${dd} ${hh}:${mi}`;
+}
+
+function formatFullTimestamp(iso: string | null): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mi = String(d.getMinutes()).padStart(2, '0');
+  const ss = String(d.getSeconds()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd} ${hh}:${mi}:${ss}`;
 }
 
 interface NodeCardProps {
   state: HarnessState;
   currentIndex: number;
   stateIndex: number;
-  stayedMs: number;
+  enteredAt: string | null;
   isFailed: boolean;
 }
 
-function NodeCard({ state, currentIndex, stateIndex, stayedMs, isFailed }: NodeCardProps) {
+function NodeCard({ state, currentIndex, stateIndex, enteredAt, isFailed }: NodeCardProps) {
   const [showLightUp, setShowLightUp] = useState(false);
   const isCompleted = stateIndex < currentIndex;
   const isCurrent = stateIndex === currentIndex;
@@ -52,6 +66,7 @@ function NodeCard({ state, currentIndex, stateIndex, stayedMs, isFailed }: NodeC
   return (
     <div
       className={animClass}
+      title={`${STATE_LABELS[state]}: ${formatFullTimestamp(enteredAt)}`}
       style={{
         width: 'var(--node-size)',
         height: 'var(--node-size)',
@@ -61,7 +76,7 @@ function NodeCard({ state, currentIndex, stateIndex, stayedMs, isFailed }: NodeC
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 2,
+        gap: 4,
         position: 'relative',
         animation: isCurrent
           ? 'heartbeat 1.2s steps(8) infinite'
@@ -72,42 +87,34 @@ function NodeCard({ state, currentIndex, stateIndex, stayedMs, isFailed }: NodeC
           : 'none',
         imageRendering: 'pixelated',
         flexShrink: 0,
+        padding: '4px 6px',
       }}
     >
       <span style={{
         fontFamily: 'var(--font-heading)',
-        fontSize: 8,
+        fontSize: 9,
         color: textColor,
         textAlign: 'center',
-        lineHeight: 1.2,
+        lineHeight: 1.3,
+        wordBreak: 'break-word',
       }}>
-        {STATE_SHORT[state]}
+        {STATE_LABELS[state]}
       </span>
       {isCompleted && (
-        <span style={{ fontSize: 16, color: 'var(--bg-deep)' }}>✓</span>
+        <span style={{ fontSize: 18, color: 'var(--bg-deep)' }}>✓</span>
       )}
       {isCurrent && (
-        <span style={{ fontSize: 12, color: 'var(--bg-deep)' }}>●</span>
+        <span style={{ fontSize: 14, color: 'var(--bg-deep)' }}>●</span>
       )}
       <span style={{
         fontFamily: 'var(--font-body)',
-        fontSize: 14,
-        color: textColor,
+        fontSize: 15,
+        color: isPending ? 'var(--text-dust)' : textColor,
         position: 'absolute',
         bottom: -24,
         whiteSpace: 'nowrap',
       }}>
-        {formatDuration(isCurrent || isCompleted ? stayedMs : 0)}
-      </span>
-      <span style={{
-        fontFamily: 'var(--font-body)',
-        fontSize: 13,
-        color: 'var(--text-dust)',
-        position: 'absolute',
-        bottom: -42,
-        whiteSpace: 'nowrap',
-      }}>
-        {STATE_LABELS[state]}
+        {formatTimestamp(enteredAt)}
       </span>
     </div>
   );
@@ -154,7 +161,7 @@ export function Pipeline({ snapshot, transition }: Props) {
         alignItems: 'center',
         padding: '48px 24px 60px',
         justifyContent: 'center',
-        minWidth: 700,
+        minWidth: 900,
       }}>
         {HARNESS_STATES.map((state, idx) => {
           const isFailed =
@@ -167,7 +174,7 @@ export function Pipeline({ snapshot, transition }: Props) {
                 state={state}
                 currentIndex={currentIndex}
                 stateIndex={idx}
-                stayedMs={snapshot.perNode[state]?.stayedMs ?? 0}
+                enteredAt={snapshot.perNode[state]?.enteredAt ?? null}
                 isFailed={isFailed}
               />
               {idx < HARNESS_STATES.length - 1 && (

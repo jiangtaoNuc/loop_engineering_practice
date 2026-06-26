@@ -5,10 +5,30 @@ import { Pipeline } from './components/Pipeline';
 import { Sidebar } from './components/Sidebar';
 import { Banner } from './components/Banner';
 
+function useClock() {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  return now;
+}
+
+function formatClock(d: Date): string {
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mi = String(d.getMinutes()).padStart(2, '0');
+  const ss = String(d.getSeconds()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd} ${hh}:${mi}:${ss}`;
+}
+
 export function App() {
   const { data: issuesData, error: issuesError } = useIssues();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const { snapshot, error: harnessError, transition } = useHarness(selectedId);
+  const now = useClock();
 
   useEffect(() => {
     if (issuesData?.issues && !selectedId && issuesData.issues.length > 0) {
@@ -54,6 +74,15 @@ export function App() {
         <span style={{ fontSize: 20 }}>▓▓▓</span>
         CODING HARNESS
         <span style={{ fontSize: 20 }}>▓▓▓</span>
+        <span style={{ flex: 1 }} />
+        <span style={{
+          fontFamily: 'var(--font-body)',
+          fontSize: 22,
+          color: 'var(--accent-lime)',
+          letterSpacing: 1,
+        }}>
+          {formatClock(now)}
+        </span>
       </header>
 
       {showBanner && (

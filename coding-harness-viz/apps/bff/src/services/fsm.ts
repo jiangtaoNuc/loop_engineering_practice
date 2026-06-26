@@ -46,9 +46,8 @@ export function deriveState(
     }
 
     if (prInfo.merged) {
-      if (deployInfo?.conclusion === 'success') {
-        return { state: 'deployed', prUrl };
-      }
+      if (deployInfo) return { state: 'deployed', prUrl };
+      if (prInfo.ciStartedAt) return { state: 'ci', prUrl };
       return { state: 'pr_merged', prUrl };
     }
 
@@ -62,23 +61,27 @@ export function deriveState(
   return { state: 'coding', prUrl };
 }
 
-function makeNodeStatus(
-  state: HarnessState,
-  target: HarnessState,
-  enteredAt: string | null,
-  now: number,
-): NodeStatus {
-  const idx = HARNESS_STATES.indexOf(state);
-  const tidx = HARNESS_STATES.indexOf(target);
+function computeNodeTimestamps(
+  issue: MulticaIssue,
+  comments: MulticaComment[],
+  prInfo: PrInfo | null,
+  deployInfo: DeployInfo | null,
+): Record<HarnessState, string | null> {
+  const sorted = [...comments].sort(
+    (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+  );
+  const firstAgentComment = sorted.find((c) => c.author_type === 'agent');
+  const agentPickedUpAt = firstAgentComment?.created_at ?? null;
 
-  if (tidx < idx) {
-    return { state: target, enteredAt: null, leftAt: null, stayedMs: 0 };
-  }
-  if (tidx === idx) {
-    const entered = enteredAt ?? new Date().toISOString();
-    return { state: target, enteredAt: entered, leftAt: null, stayedMs: now - new Date(entered).getTime() };
-  }
-  return { state: target, enteredAt: enteredAt ?? null, leftAt: enteredAt ?? null, stayedMs: 0 };
+  return {
+    issue_created: issue.created_at,
+    agent_picked_up: agentPickedUpAt,
+    coding: agentPickedUpAt,
+    pr_opened: prInfo?.createdAt ?? null,
+    pr_merged: prInfo?.mergedAt ?? null,
+    ci: prInfo?.ciStartedAt ?? null,
+    deployed: deployInfo?.startedAt ?? null,
+  };
 }
 
 export function buildSnapshot(
@@ -89,13 +92,12 @@ export function buildSnapshot(
   deployInfo: DeployInfo | null,
   agentName: string | null,
 ): HarnessSnapshot {
-  const now = Date.now();
   const { state, prUrl } = deriveState(issue, comments, metadata, prInfo, deployInfo);
+  const timestamps = computeNodeTimestamps(issue, comments, prInfo, deployInfo);
 
-  const enteredAt = issue.created_at;
   const perNode = {} as Record<HarnessState, NodeStatus>;
   for (const s of HARNESS_STATES) {
-    perNode[s] = makeNodeStatus(state, s, enteredAt, now);
+    perNode[s] = { state: s, enteredAt: timestamps[s] ?? null };
   }
 
   const deployUrl = (metadata.deploy_url as string) ?? deployInfo?.runUrl ?? null;
@@ -121,8 +123,7 @@ export function buildSnapshot(
     identifier: issue.identifier,
     title: issue.title,
     state,
-    enteredAt,
-    stayedMs: now - new Date(enteredAt).getTime(),
+    enteredAt: timestamps[state] ?? issue.created_at,
     perNode,
     meta,
     degraded: false,
