@@ -1,0 +1,77 @@
+{
+  "issues": [
+    {
+      "id": "mock-issue-006",
+      "identifier": "MOCK-06",
+      "title": "Test issue for AC-06 deployed",
+      "status": "done",
+      "assignee_id": "mock-agent-001",
+      "assignee_type": "agent",
+      "created_at": "2026-06-25T04:00:00Z",
+      "updated_at": "2026-06-25T10:00:00Z"
+    }
+  ],
+  "harness": {
+    "issueId": "mock-issue-006",
+    "identifier": "MOCK-06",
+    "title": "Test issue for AC-06 deployed",
+    "state": "pr_merged",
+    "enteredAt": "2026-06-25T04:00:00Z",
+    "stayedMs": 21600000,
+    "perNode": {
+      "issue_created": { "state": "issue_created", "enteredAt": "2026-06-25T04:00:00Z", "leftAt": "2026-06-25T04:02:00Z", "stayedMs": 120000 },
+      "agent_picked_up": { "state": "agent_picked_up", "enteredAt": "2026-06-25T04:02:00Z", "leftAt": "2026-06-25T05:00:00Z", "stayedMs": 3480000 },
+      "coding": { "state": "coding", "enteredAt": "2026-06-25T05:00:00Z", "leftAt": "2026-06-25T08:00:00Z", "stayedMs": 10800000 },
+      "pr_opened": { "state": "pr_opened", "enteredAt": "2026-06-25T08:00:00Z", "leftAt": "2026-06-25T09:00:00Z", "stayedMs": 3600000 },
+      "pr_merged": { "state": "pr_merged", "enteredAt": "2026-06-25T09:00:00Z", "leftAt": "2026-06-25T09:30:00Z", "stayedMs": 1800000 },
+      "deployed": { "state": "deployed", "enteredAt": null, "leftAt": null, "stayedMs": 0 }
+    },
+    "meta": {
+      "prUrl": "https://github.com/jiangtaoNuc/loop_engineering_practice/pull/100",
+      "deployUrl": null,
+      "assignee": "Mock Fullstack Agent",
+      "lastComment": "Deploy in progress...",
+      "ciStatus": "pass",
+      "prDraft": false,
+      "prMerged": true,
+      "prClosed": false,
+      "deployFailed": false
+    },
+    "degraded": false,
+    "etag": "mock-ac06-etag-v1"
+  },
+  "transitions": [
+    {
+      "afterSeconds": 5,
+      "harness": {
+        "issueId": "mock-issue-006",
+        "identifier": "MOCK-06",
+        "title": "Test issue for AC-06 deployed",
+        "state": "deployed",
+        "enteredAt": "2026-06-25T04:00:00Z",
+        "stayedMs": 21600000,
+        "perNode": {
+          "issue_created": { "state": "issue_created", "enteredAt": "2026-06-25T04:00:00Z", "leftAt": "2026-06-25T04:02:00Z", "stayedMs": 120000 },
+          "agent_picked_up": { "state": "agent_picked_up", "enteredAt": "2026-06-25T04:02:00Z", "leftAt": "2026-06-25T05:00:00Z", "stayedMs": 3480000 },
+          "coding": { "state": "coding", "enteredAt": "2026-06-25T05:00:00Z", "leftAt": "2026-06-25T08:00:00Z", "stayedMs": 10800000 },
+          "pr_opened": { "state": "pr_opened", "enteredAt": "2026-06-25T08:00:00Z", "leftAt": "2026-06-25T09:00:00Z", "stayedMs": 3600000 },
+          "pr_merged": { "state": "pr_merged", "enteredAt": "2026-06-25T09:00:00Z", "leftAt": "2026-06-25T09:30:00Z", "stayedMs": 1800000 },
+          "deployed": { "state": "deployed", "enteredAt": "2026-06-25T09:30:00Z", "leftAt": null, "stayedMs": 600000 }
+        },
+        "meta": {
+          "prUrl": "https://github.com/jiangtaoNuc/loop_engineering_practice/pull/100",
+          "deployUrl": "https://github.com/jiangtaoNuc/loop_engineering_practice/actions/runs/12345",
+          "assignee": "Mock Fullstack Agent",
+          "lastComment": "Deployed successfully!",
+          "ciStatus": "pass",
+          "prDraft": false,
+          "prMerged": true,
+          "prClosed": false,
+          "deployFailed": false
+        },
+        "degraded": false,
+        "etag": "mock-ac06-etag-v2"
+      }
+    }
+  ]
+}

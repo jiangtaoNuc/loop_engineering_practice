@@ -67,6 +67,33 @@ coding-harness-viz/
 - No write operations (read-only visualization)
 - S4 review decision parsing is simplified (PR open + non-draft = S4)
 
+## BFF Mock Mode
+
+For e2e testing without real Multica/GitHub dependencies, the BFF supports a `--mock-fixture` mode that serves pre-defined FSM snapshots from a JSON file:
+
+```bash
+cd apps/bff
+npx tsx src/index.ts --mock-fixture test/fixtures/ac-01-issue-created.json
+```
+
+Mock fixtures live in `apps/bff/test/fixtures/`. Each fixture defines:
+- `issues`: the issue list returned by `/api/issues`
+- `harness`: the initial FSM snapshot for `/api/issues/:id/harness`
+- `transitions` (optional): timed state changes that fire after N seconds
+
+## E2E Regression Tests
+
+Playwright e2e tests cover 3 main paths (AC-01, AC-05, AC-06):
+
+```bash
+cd coding-harness-viz
+pnpm install
+npx playwright install chromium
+pnpm test:e2e
+```
+
+Each test suite starts BFF in mock mode with its fixture, then runs the Playwright tests against the frontend.
+
 ## Acceptance Criteria Covered
 
 - AC-01: New issue lights up S1 node with heartbeat animation
@@ -75,6 +102,35 @@ coding-harness-viz/
 - AC-05: PR merge triggers firework animation
 - AC-06: Deploy success triggers rocket animation, S6 highlighted
 - AC-11: Clicking issue tab switches pipeline within 300ms, URL syncs
+
+## Pipeline Detail Telemetry
+
+The harness now persists state-transition history locally and can surface AI coding telemetry in the node detail modal.
+
+### Transitions persistence
+
+When `GET /api/issues/:id/harness` is called, the BFF compares the derived FSM state with the last recorded transition. If it changed, a new transition is appended to:
+
+```
+apps/bff/data/transitions/<issueId>.json
+```
+
+The base directory can be overridden with `HARNESS_DATA_DIR`. Writes are atomic (`.tmp` + `rename`) and each file is capped at 200 transitions. These files are ignored by `.gitignore` and should not be committed.
+
+### Coding stats footer protocol
+
+Agents can self-report coding telemetry by including an HTML comment footer in any comment:
+
+```
+<!-- coding-stats
+tool_calls: 42
+tokens_in: 12345
+tokens_out: 6789
+turns: 5
+-->
+```
+
+`GET /api/issues/:id/coding-stats` scans the 50 most recent comments and returns the latest agent-reported block. The frontend fetches this lazily when the **coding** node detail modal is opened.
 
 ## Deployment
 
@@ -166,3 +222,7 @@ Run `deploy/bootstrap.sh` on the ECS host to install Node.js, pnpm, nginx, and r
 ```bash
 sudo bash coding-harness-viz/deploy/bootstrap.sh
 ```
+
+## Query: include_autopilot
+
+By default, `GET /api/issues` filters out issues assigned to the SRE autopilot agent that have no linked PR. Append `?include_autopilot=1` to bypass the filter for debugging. The frontend toggle persists to `localStorage["chv:includeAutopilot"]`.

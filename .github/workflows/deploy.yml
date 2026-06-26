@@ -155,6 +155,19 @@ jobs:
             cd "$DEPLOY_DIR/bff"
             tar xzf "$TMP_DIR/bff.tar.gz"
 
+            # --- Ensure pnpm is available ---
+            if ! command -v pnpm >/dev/null 2>&1; then
+              if command -v corepack >/dev/null 2>&1; then
+                corepack enable
+                corepack prepare pnpm@9 --activate
+              elif command -v npm >/dev/null 2>&1; then
+                npm install -g pnpm
+              else
+                echo "::error::pnpm, corepack and npm are all missing on the server. Please install Node.js/pnpm first."
+                exit 1
+              fi
+            fi
+
             # --- Install production dependencies ---
             cd "$DEPLOY_DIR/bff"
             pnpm install --prod --frozen-lockfile

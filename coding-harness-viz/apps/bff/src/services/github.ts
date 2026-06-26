@@ -17,6 +17,8 @@ export interface PrInfo {
   state: string;
   draft: boolean;
   merged: boolean;
+  mergedAt: string | null;
+  title: string | null;
   mergeCommitSha: string | null;
   headSha: string;
   author: string;
@@ -28,6 +30,8 @@ export interface DeployInfo {
   conclusion: string | null;
   runUrl: string | null;
   deployUrl: string | null;
+  startedAt: string | null;
+  completedAt: string | null;
 }
 
 export function parsePrUrl(url: string): { owner: string; repo: string; number: number } | null {
@@ -92,6 +96,8 @@ export async function getPrInfo(prUrl: string): Promise<PrInfo | null> {
       state: pr.state,
       draft: pr.draft ?? false,
       merged: pr.merged ?? false,
+      mergedAt: pr.merged_at ?? null,
+      title: pr.title ?? null,
       mergeCommitSha: pr.merge_commit_sha ?? null,
       headSha: pr.head.sha,
       author: pr.user?.login ?? 'unknown',
@@ -137,6 +143,8 @@ export async function getDeployInfo(
       conclusion: run.conclusion,
       runUrl: run.html_url,
       deployUrl: null,
+      startedAt: run.run_started_at ?? run.created_at ?? null,
+      completedAt: run.updated_at ?? null,
     };
 
     cache.set(key, info, GITHUB_TTL_MS);

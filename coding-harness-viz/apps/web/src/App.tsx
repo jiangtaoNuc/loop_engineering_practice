@@ -1,14 +1,54 @@
-import { useState, useEffect } from 'react';
-import { useIssues, useHarness } from './hooks/useHarness';
+import { useState, useEffect, useCallback } from 'react';
+import { useIssues, useHarness, useCodingStats } from './hooks/useHarness';
 import { IssueTabs } from './components/IssueTabs';
+import { StatusFilter } from './components/StatusFilter';
 import { Pipeline } from './components/Pipeline';
 import { Sidebar } from './components/Sidebar';
 import { Banner } from './components/Banner';
+import { NodeDetailModal } from './components/NodeDetailModal';
+import type { HarnessState } from '@coding-harness/shared';
+import { STATUS_FILTER_ALL, ISSUE_STATUSES } from '@coding-harness/shared';
+
+const LS_KEY = 'chv:includeAutopilot';
+
+function getInitialStatusFilter(): string {
+  const params = new URLSearchParams(window.location.search);
+  const fromUrl = params.get('status');
+  if (fromUrl && (fromUrl === STATUS_FILTER_ALL || (ISSUE_STATUSES as string[]).includes(fromUrl))) {
+    return fromUrl;
+  }
+  return STATUS_FILTER_ALL;
+}
 
 export function App() {
-  const { data: issuesData, error: issuesError } = useIssues();
+  const [includeAutopilot, setIncludeAutopilot] = useState<boolean>(
+    () => localStorage.getItem(LS_KEY) === '1'
+  );
+  const { data: issuesData, error: issuesError } = useIssues(includeAutopilot);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<string>(getInitialStatusFilter);
   const { snapshot, error: harnessError, transition } = useHarness(selectedId);
+  const [modalState, setModalState] = useState<HarnessState | null>(null);
+  const { stats, loading: loadingStats, fetchStats } = useCodingStats(selectedId);
+
+  const handleToggleAutopilot = useCallback(() => {
+    setIncludeAutopilot((prev) => {
+      const next = !prev;
+      localStorage.setItem(LS_KEY, next ? '1' : '0');
+      return next;
+    });
+  }, []);
+
+  const handleStatusChange = useCallback((status: string) => {
+    setStatusFilter(status);
+    const url = new URL(window.location.href);
+    if (status === STATUS_FILTER_ALL) {
+      url.searchParams.delete('status');
+    } else {
+      url.searchParams.set('status', status);
+    }
+    window.history.replaceState(null, '', url.toString());
+  }, []);
 
   useEffect(() => {
     if (issuesData?.issues && !selectedId && issuesData.issues.length > 0) {
@@ -21,6 +61,12 @@ export function App() {
     }
   }, [issuesData, selectedId]);
 
+  useEffect(() => {
+    if (modalState === 'coding') {
+      fetchStats();
+    }
+  }, [modalState, fetchStats]);
+
   const handleSelect = (id: string) => {
     setSelectedId(id);
     const issue = issuesData?.issues.find((i) => i.id === id);
@@ -30,6 +76,11 @@ export function App() {
       window.history.replaceState(null, '', url.toString());
     }
   };
+
+  const allIssues = issuesData?.issues ?? [];
+  const filteredIssues = statusFilter === STATUS_FILTER_ALL
+    ? allIssues
+    : allIssues.filter((i) => i.status === statusFilter);
 
   const showBanner = issuesError || harnessError;
 
@@ -63,10 +114,20 @@ export function App() {
         />
       )}
 
+      <StatusFilter
+        statusFilter={statusFilter}
+        onStatusChange={handleStatusChange}
+        issues={allIssues}
+        filteredCount={filteredIssues.length}
+      />
+
       <IssueTabs
-        issues={issuesData?.issues ?? []}
+        issues={filteredIssues}
         selectedId={selectedId}
         onSelect={handleSelect}
+        includeAutopilot={includeAutopilot}
+        onToggleAutopilot={handleToggleAutopilot}
+        isFiltered={statusFilter !== STATUS_FILTER_ALL}
       />
 
       <div style={{
@@ -83,7 +144,11 @@ export function App() {
           padding: 16,
         }}>
           {snapshot ? (
-            <Pipeline snapshot={snapshot} transition={transition} />
+            <Pipeline
+              snapshot={snapshot}
+              transition={transition}
+              onNodeClick={setModalState}
+            />
           ) : (
             <div style={{
               fontFamily: 'var(--font-body)',
@@ -98,6 +163,16 @@ export function App() {
 
         {snapshot && <Sidebar snapshot={snapshot} />}
       </div>
+
+      {snapshot && modalState && (
+        <NodeDetailModal
+          snapshot={snapshot}
+          state={modalState}
+          stats={stats}
+          loadingStats={loadingStats}
+          onClose={() => setModalState(null)}
+        />
+      )}
     </div>
   );
 }
