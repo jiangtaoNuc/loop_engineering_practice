@@ -140,7 +140,6 @@ export function buildSnapshot(
       u: issue.updated_at,
       d: deployInfo?.conclusion,
       e: currentNode?.enteredAt,
-      l: currentNode?.leftAt,
     }),
   ).toString('base64url').slice(0, 32);
 

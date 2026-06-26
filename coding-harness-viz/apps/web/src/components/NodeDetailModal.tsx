@@ -14,15 +14,6 @@ function formatDateTime(iso: string | null): string {
   return `${yyyy}-${mm}-${dd} ${hh}:${mi}:${ss}`;
 }
 
-function formatDuration(ms: number): string {
-  const s = Math.floor(ms / 1000);
-  const m = Math.floor(s / 60);
-  const h = Math.floor(m / 60);
-  if (h > 0) return `${h}h ${m % 60}m ${String(s % 60).padStart(2, '0')}s`;
-  if (m > 0) return `${m}m ${String(s % 60).padStart(2, '0')}s`;
-  return `${String(s).padStart(2, '0')}s`;
-}
-
 function label(labelText: string, value: React.ReactNode) {
   return (
     <div style={{ marginBottom: 12 }}>
@@ -125,7 +116,6 @@ export function NodeDetailModal({ snapshot, state, stats, loadingStats, onClose 
 
         {state === 'issue_created' && (
           <>
-            {label('CREATOR', `${snapshot.creatorType ?? 'unknown'} ${snapshot.creatorId ? `(${snapshot.creatorId.slice(0, 8)})` : ''}`)}
             {label('CREATED AT', formatDateTime(snapshot.perNode.issue_created.enteredAt))}
             {label('TITLE', snapshot.title)}
             {label('ISSUE', `[${snapshot.identifier}](https://app.multica.io/issues/${snapshot.issueId})`)}
@@ -136,14 +126,12 @@ export function NodeDetailModal({ snapshot, state, stats, loadingStats, onClose 
           <>
             {label('AGENT', snapshot.meta.assignee ?? '--')}
             {label('STARTED AT', formatDateTime(node.enteredAt))}
-            {label('DURATION', formatDuration(node.stayedMs))}
           </>
         )}
 
         {state === 'coding' && (
           <>
             {label('STARTED AT', formatDateTime(node.enteredAt))}
-            {label('DURATION', formatDuration(node.stayedMs))}
             <div style={{ marginTop: 16, borderTop: '2px solid var(--ink-muted)', paddingTop: 12 }}>
               <div style={{
                 fontFamily: 'var(--font-heading)',
