@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useIssues, useHarness, useCodingStats } from './hooks/useHarness';
 import { IssueTabs } from './components/IssueTabs';
 import { StatusFilter } from './components/StatusFilter';
@@ -7,6 +7,14 @@ import { Sidebar } from './components/Sidebar';
 import { Banner } from './components/Banner';
 import { NodeDetailModal } from './components/NodeDetailModal';
 import type { HarnessState } from '@coding-harness/shared';
+import { STATUS_FILTER_ALL } from '@coding-harness/shared';
+
+const LS_KEY = 'coding-harness-include-autopilot';
+
+function getInitialStatusFilter(): string {
+  const params = new URLSearchParams(window.location.search);
+  return params.get('status') ?? STATUS_FILTER_ALL;
+}
 
 export function App() {
   const [includeAutopilot, setIncludeAutopilot] = useState<boolean>(
@@ -54,6 +62,10 @@ export function App() {
       fetchStats();
     }
   }, [modalState, fetchStats]);
+
+  useEffect(() => {
+    setModalState(null);
+  }, [selectedId]);
 
   const handleSelect = (id: string) => {
     setSelectedId(id);

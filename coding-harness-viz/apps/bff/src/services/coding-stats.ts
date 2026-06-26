@@ -1,53 +1,121 @@
 import type { CodingStats } from '@coding-harness/shared';
 import type { MulticaComment } from './multica-cli.js';
 
-const CODING_STATS_RE = /<!-- coding-stats\n([\s\S]*?)-->/;
+interface ParsedFooter {
+  version: 1 | 2;
+  startedAt: string | null;
+  endedAt: string | null;
+  toolCalls: number | null;
+  events: number | null;
+  turns: number | null;
+  commentId: string;
+  commentCreatedAt: string;
+}
 
-function parseCodingStatsFooter(content: string): Omit<CodingStats, 'available' | 'sampleCommentId' | 'sampleAt'> | null {
-  const match = content.match(CODING_STATS_RE);
-  if (!match) return null;
+const V2_RE = /<!--\s*coding-stats\s+v2\s*\n([\s\S]*?)-->/;
+const V1_RE = /<!--\s*coding-stats\s*\n([\s\S]*?)-->/;
 
-  const block = match[1];
-  const pairs: Record<string, string> = {};
+function parseKeyValue(block: string): Record<string, string> {
+  const result: Record<string, string> = {};
   for (const line of block.split('\n')) {
-    const idx = line.indexOf(':');
-    if (idx === -1) continue;
-    const key = line.slice(0, idx).trim();
-    const value = line.slice(idx + 1).trim();
-    pairs[key] = value;
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    const colonIdx = trimmed.indexOf(':');
+    if (colonIdx === -1) continue;
+    const key = trimmed.slice(0, colonIdx).trim();
+    const value = trimmed.slice(colonIdx + 1).trim();
+    if (key) result[key] = value;
   }
+  return result;
+}
 
-  const toolCalls = parseInt(pairs.tool_calls ?? '', 10);
-  const tokensIn = parseInt(pairs.tokens_in ?? '', 10);
-  const tokensOut = parseInt(pairs.tokens_out ?? '', 10);
-  const turns = parseInt(pairs.turns ?? '', 10);
+function parseV2Block(block: string, commentId: string, commentCreatedAt: string): ParsedFooter {
+  const kv = parseKeyValue(block);
+  return {
+    version: 2,
+    startedAt: kv.started_at ?? null,
+    endedAt: kv.ended_at ?? null,
+    toolCalls: kv.tool_calls != null ? parseInt(kv.tool_calls, 10) : null,
+    events: kv.events != null ? parseInt(kv.events, 10) : null,
+    turns: kv.turns != null ? parseInt(kv.turns, 10) : null,
+    commentId,
+    commentCreatedAt,
+  };
+}
 
-  if ([toolCalls, tokensIn, tokensOut, turns].some((v) => Number.isNaN(v))) {
-    return null;
+function parseV1Block(block: string, commentId: string, commentCreatedAt: string): ParsedFooter {
+  const kv = parseKeyValue(block);
+  return {
+    version: 1,
+    startedAt: null,
+    endedAt: null,
+    toolCalls: kv.tool_calls != null ? parseInt(kv.tool_calls, 10) : null,
+    events: null,
+    turns: kv.turns != null ? parseInt(kv.turns, 10) : null,
+    commentId,
+    commentCreatedAt,
+  };
+}
+
+function parseAllFooters(comments: MulticaComment[]): ParsedFooter[] {
+  const footers: ParsedFooter[] = [];
+  for (const c of comments) {
+    if (c.author_type !== 'agent') continue;
+    const v2Match = c.content.match(V2_RE);
+    if (v2Match) {
+      footers.push(parseV2Block(v2Match[1], c.id, c.created_at));
+      continue;
+    }
+    const v1Match = c.content.match(V1_RE);
+    if (v1Match) {
+      footers.push(parseV1Block(v1Match[1], c.id, c.created_at));
+    }
   }
+  return footers;
+}
 
-  return { toolCalls, tokensIn, tokensOut, turns };
+function calcDurationSec(startedAt: string | null, endedAt: string | null): number | null {
+  if (!startedAt || !endedAt) return null;
+  const start = new Date(startedAt).getTime();
+  const end = new Date(endedAt).getTime();
+  if (isNaN(start) || isNaN(end) || end < start) return null;
+  return Math.round((end - start) / 1000);
+}
+
+export function extractEarliestStartedAt(comments: MulticaComment[]): string | null {
+  const footers = parseAllFooters(comments);
+  const v2Started = footers
+    .filter((f) => f.version === 2 && f.startedAt)
+    .map((f) => f.startedAt!)
+    .sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
+  return v2Started.length > 0 ? v2Started[0] : null;
 }
 
 export function extractCodingStats(comments: MulticaComment[]): CodingStats {
-  for (const comment of comments) {
-    if (comment.author_type !== 'agent') continue;
-    const parsed = parseCodingStatsFooter(comment.content);
-    if (!parsed) continue;
-
+  const footers = parseAllFooters(comments);
+  if (footers.length === 0) {
     return {
-      available: true,
-      ...parsed,
-      sampleCommentId: comment.id,
-      sampleAt: comment.created_at,
+      available: false,
+      startedAt: null,
+      endedAt: null,
+      durationSec: null,
+      toolCalls: null,
+      events: null,
+      turns: null,
     };
   }
 
+  const latest = footers[footers.length - 1];
+
   return {
-    available: false,
-    toolCalls: 0,
-    tokensIn: 0,
-    tokensOut: 0,
-    turns: 0,
+    available: true,
+    startedAt: latest.startedAt,
+    endedAt: latest.endedAt,
+    durationSec: calcDurationSec(latest.startedAt, latest.endedAt),
+    toolCalls: latest.toolCalls,
+    events: latest.events,
+    turns: latest.turns,
+    sampleCommentId: latest.commentId,
+    sampleAt: latest.commentCreatedAt,
   };
 }
