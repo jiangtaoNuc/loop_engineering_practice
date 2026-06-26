@@ -23,6 +23,8 @@ function makeIssue(overrides: Partial<MulticaIssue> & { id: string; identifier: 
     status: 'todo',
     assignee_id: null,
     assignee_type: null,
+    creator_id: null,
+    creator_type: null,
     created_at: '2026-01-01T00:00:00Z',
     updated_at: '2026-01-01T00:00:00Z',
     ...overrides,
