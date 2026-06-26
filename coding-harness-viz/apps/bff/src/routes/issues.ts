@@ -60,6 +60,19 @@ export async function issueRoutes(app: FastifyInstance): Promise<void> {
   app.get('/api/issues/:id/harness', async (req, reply) => {
     const { id } = req.params as { id: string };
 
+    if (isMockMode()) {
+      const snap = mockGetHarness(id);
+      if (!snap) {
+        return reply.code(404).send({ error: 'Mock issue not found' });
+      }
+      const ifNoneMatch = req.headers['if-none-match'];
+      if (ifNoneMatch === `"${snap.etag}"`) {
+        return reply.code(304).send();
+      }
+      reply.header('ETag', `"${snap.etag}"`);
+      return snap;
+    }
+
     try {
       const [issue, comments, metadata] = await Promise.all([
         multica.getIssue(id),
