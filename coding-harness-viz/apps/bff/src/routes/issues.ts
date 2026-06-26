@@ -5,6 +5,7 @@ import * as github from '../services/github.js';
 import { buildSnapshot } from '../services/fsm.js';
 import { extractPrUrl } from '../services/fsm.js';
 import { SRE_AUTOPILOT_AGENT_ID, ISSUE_LIST_LIMIT } from '../constants.js';
+import { isMockMode, mockGetHarness } from '../services/mock.js';
 
 export async function issueRoutes(app: FastifyInstance): Promise<void> {
   app.get('/api/issues', async (req, reply) => {
