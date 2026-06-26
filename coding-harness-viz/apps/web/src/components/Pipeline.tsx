@@ -42,13 +42,10 @@ interface NodeCardProps {
   node: { enteredAt: string | null; leftAt: string | null; stayedMs: number };
   isFailed: boolean;
   isCancelled: boolean;
-}
-
-function NodeCard({ state, currentIndex, stateIndex, stayedMs, isFailed, isCancelled }: NodeCardProps) {
   onClick: () => void;
 }
 
-function NodeCard({ state, currentIndex, stateIndex, node, isFailed, onClick }: NodeCardProps) {
+function NodeCard({ state, currentIndex, stateIndex, node, isFailed, isCancelled, onClick }: NodeCardProps) {
   const [showLightUp, setShowLightUp] = useState(false);
   const isCompleted = stateIndex < currentIndex;
   const isCurrent = stateIndex === currentIndex;
@@ -96,30 +93,6 @@ function NodeCard({ state, currentIndex, stateIndex, node, isFailed, onClick }: 
   };
 
   return (
-    <div
-      className={animClass}
-      style={{
-        width: 'var(--node-size)',
-        height: 'var(--node-size)',
-        background: bg,
-        border: `4px solid ${borderColor}`,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 2,
-        position: 'relative',
-        animation: isCurrent
-          ? 'heartbeat 1.2s steps(8) infinite'
-          : isFailed
-          ? 'failShake 0.4s steps(6) 3'
-          : showLightUp
-          ? 'nodeLightUp 1s steps(12) 1'
-          : 'none',
-        imageRendering: 'pixelated',
-        flexShrink: 0,
-      }}
-    >
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
       <div
         role="button"
@@ -132,7 +105,7 @@ function NodeCard({ state, currentIndex, stateIndex, node, isFailed, onClick }: 
           width: 'var(--node-size)',
           height: 'var(--node-size)',
           background: bg,
-          border: `4px solid ${isFailed ? 'var(--accent-red)' : isCurrent ? 'var(--accent-cyan)' : isCompleted ? 'var(--accent-lime)' : 'var(--ink-muted)'}`,
+          border: `4px solid ${borderColor}`,
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
