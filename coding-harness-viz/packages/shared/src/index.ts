@@ -73,6 +73,37 @@ export interface IssueSummary {
   updatedAt: string;
 }
 
+export type IssueStatus =
+  | 'todo'
+  | 'in_progress'
+  | 'in_review'
+  | 'done'
+  | 'blocked'
+  | 'backlog'
+  | 'cancelled';
+
+export const ISSUE_STATUSES: IssueStatus[] = [
+  'todo',
+  'in_progress',
+  'in_review',
+  'done',
+  'blocked',
+  'backlog',
+  'cancelled',
+];
+
+export const ISSUE_STATUS_LABELS: Record<IssueStatus, string> = {
+  todo: 'TODO',
+  in_progress: 'IN PROGRESS',
+  in_review: 'IN REVIEW',
+  done: 'DONE',
+  blocked: 'BLOCKED',
+  backlog: 'BACKLOG',
+  cancelled: 'CANCELLED',
+};
+
+export const STATUS_FILTER_ALL = 'all';
+
 export interface IssueListQuery {
   includeAutopilot?: boolean;
 }
