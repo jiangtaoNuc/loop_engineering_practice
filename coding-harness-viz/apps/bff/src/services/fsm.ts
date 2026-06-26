@@ -148,14 +148,25 @@ export function buildSnapshot(
     }),
   ).toString('base64url').slice(0, 32);
 
-  const now = Date.now();
+  const createdAt = new Date(issue.created_at).getTime();
+  const allTimestamps = Object.values(timestamps).filter(
+    (t): t is string => t != null,
+  );
+  const lastTs = allTimestamps.length > 0
+    ? Math.max(...allTimestamps.map((t) => new Date(t).getTime()))
+    : null;
+  const endTime = issue.status === 'done' && lastTs && !isNaN(lastTs)
+    ? lastTs
+    : Date.now();
+  const totalDurationMs = !isNaN(createdAt) ? endTime - createdAt : 0;
+
   return {
     issueId: issue.id,
     identifier: issue.identifier,
     title: issue.title,
     state,
     enteredAt: timestamps[state] ?? issue.created_at,
-    totalDurationMs: now - new Date(issue.created_at).getTime(),
+    totalDurationMs,
     creatorType: issue.creator_type ?? null,
     creatorId: issue.creator_id ?? null,
     perNode,
