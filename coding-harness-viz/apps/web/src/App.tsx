@@ -1,11 +1,22 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useIssues, useHarness } from './hooks/useHarness';
 import { IssueTabs } from './components/IssueTabs';
+import { StatusFilter } from './components/StatusFilter';
 import { Pipeline } from './components/Pipeline';
 import { Sidebar } from './components/Sidebar';
 import { Banner } from './components/Banner';
+import { STATUS_FILTER_ALL, ISSUE_STATUSES } from '@coding-harness/shared';
 
 const LS_KEY = 'chv:includeAutopilot';
+
+function getInitialStatusFilter(): string {
+  const params = new URLSearchParams(window.location.search);
+  const fromUrl = params.get('status');
+  if (fromUrl && (fromUrl === STATUS_FILTER_ALL || (ISSUE_STATUSES as string[]).includes(fromUrl))) {
+    return fromUrl;
+  }
+  return STATUS_FILTER_ALL;
+}
 
 export function App() {
   const [includeAutopilot, setIncludeAutopilot] = useState<boolean>(
@@ -13,6 +24,7 @@ export function App() {
   );
   const { data: issuesData, error: issuesError } = useIssues(includeAutopilot);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<string>(getInitialStatusFilter);
   const { snapshot, error: harnessError, transition } = useHarness(selectedId);
 
   const handleToggleAutopilot = useCallback(() => {
@@ -21,6 +33,17 @@ export function App() {
       localStorage.setItem(LS_KEY, next ? '1' : '0');
       return next;
     });
+  }, []);
+
+  const handleStatusChange = useCallback((status: string) => {
+    setStatusFilter(status);
+    const url = new URL(window.location.href);
+    if (status === STATUS_FILTER_ALL) {
+      url.searchParams.delete('status');
+    } else {
+      url.searchParams.set('status', status);
+    }
+    window.history.replaceState(null, '', url.toString());
   }, []);
 
   useEffect(() => {
@@ -43,6 +66,11 @@ export function App() {
       window.history.replaceState(null, '', url.toString());
     }
   };
+
+  const allIssues = issuesData?.issues ?? [];
+  const filteredIssues = statusFilter === STATUS_FILTER_ALL
+    ? allIssues
+    : allIssues.filter((i) => i.status === statusFilter);
 
   const showBanner = issuesError || harnessError;
 
@@ -76,12 +104,20 @@ export function App() {
         />
       )}
 
+      <StatusFilter
+        statusFilter={statusFilter}
+        onStatusChange={handleStatusChange}
+        issues={allIssues}
+        filteredCount={filteredIssues.length}
+      />
+
       <IssueTabs
-        issues={issuesData?.issues ?? []}
+        issues={filteredIssues}
         selectedId={selectedId}
         onSelect={handleSelect}
         includeAutopilot={includeAutopilot}
         onToggleAutopilot={handleToggleAutopilot}
+        isFiltered={statusFilter !== STATUS_FILTER_ALL}
       />
 
       <div style={{

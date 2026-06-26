@@ -6,9 +6,10 @@ interface Props {
   onSelect: (id: string) => void;
   includeAutopilot: boolean;
   onToggleAutopilot: () => void;
+  isFiltered: boolean;
 }
 
-export function IssueTabs({ issues, selectedId, onSelect, includeAutopilot, onToggleAutopilot }: Props) {
+export function IssueTabs({ issues, selectedId, onSelect, includeAutopilot, onToggleAutopilot, isFiltered }: Props) {
   if (issues.length === 0) {
     return (
       <div style={{
@@ -18,7 +19,9 @@ export function IssueTabs({ issues, selectedId, onSelect, includeAutopilot, onTo
         color: 'var(--text-dust)',
         textAlign: 'center',
       }}>
-        ▒▒▒ No issues found. Waiting for creation... ▒▒▒
+        {isFiltered
+          ? '▒▒▒ No issues match this filter ▒▒▒'
+          : '▒▒▒ No issues found. Waiting for creation... ▒▒▒'}
       </div>
     );
   }
