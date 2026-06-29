@@ -38,9 +38,6 @@ jobs:
       - name: Build
         run: pnpm build
 
-      - name: Build shared package (for production runtime)
-        run: pnpm --filter @coding-harness/shared exec tsc
-
       - name: Upload deploy artifacts
         uses: actions/upload-artifact@v4
         with:
