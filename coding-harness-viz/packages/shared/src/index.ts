@@ -30,6 +30,9 @@ export const STATE_LABELS: Record<HarnessState, string> = {
 export interface NodeStatus {
   state: HarnessState;
   enteredAt: string | null;
+  leftAt: string | null;
+  stayedMs: number;
+  durationSec?: number;
 }
 
 export interface HarnessMeta {
