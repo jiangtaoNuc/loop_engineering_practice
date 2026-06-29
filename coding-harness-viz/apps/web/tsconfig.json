@@ -3,7 +3,11 @@
   "compilerOptions": {
     "jsx": "react-jsx",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    "outDir": "./dist"
+    "outDir": "./dist",
+    "baseUrl": ".",
+    "paths": {
+      "@coding-harness/shared": ["../../packages/shared/src/index.ts"]
+    }
   },
   "include": ["src"]
 }
