@@ -16,20 +16,21 @@ export async function issueRoutes(app: FastifyInstance): Promise<void> {
 
       const issues = await multica.listIssues();
 
-      // Always filter out issues without PR URLs (both autopilot and non-autopilot)
+      // Non-autopilot issues are always shown. Autopilot issues are hidden unless
+      // they have a PR URL or the user explicitly opts in via include_autopilot=1.
       const filteredPromises = issues.map(async (issue) => {
+        if (issue.assignee_id !== SRE_AUTOPILOT_AGENT_ID) return issue;
+
+        if (includeAutopilot) return issue;
+
         const metadata = await multica.getMetadata(issue.id);
         if (metadata.pr_url && typeof metadata.pr_url === 'string') return issue;
 
         const comments = await multica.getAllComments(issue.id);
         const prUrl = extractPrUrl(metadata, comments);
-        if (!prUrl) return null;
+        if (prUrl) return issue;
 
-        // When autopilot is excluded, filter out autopilot issues even if they have PRs
-        if (!includeAutopilot && issue.assignee_id === SRE_AUTOPILOT_AGENT_ID) {
-          return null;
-        }
-        return issue;
+        return null;
       });
       const results = await Promise.all(filteredPromises);
       let filtered = results.filter((i): i is multica.MulticaIssue => i !== null);

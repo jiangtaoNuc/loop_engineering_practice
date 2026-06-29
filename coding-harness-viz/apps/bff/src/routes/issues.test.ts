@@ -7,6 +7,7 @@ vi.mock('../services/multica-cli.js', () => ({
   listIssues: vi.fn(),
   getMetadata: vi.fn(),
   getComments: vi.fn(),
+  getAllComments: vi.fn(),
 }));
 
 vi.mock('../services/github.js', () => ({
@@ -59,8 +60,12 @@ describe('GET /api/issues', () => {
     });
 
     vi.mocked(multica.listIssues).mockResolvedValue([autopilotIssue, normalIssue]);
-    vi.mocked(multica.getMetadata).mockResolvedValue({});
-    vi.mocked(multica.getComments).mockResolvedValue([]);
+    vi.mocked(multica.getMetadata).mockImplementation(async (id: string) =>
+      id === 'norm-1'
+        ? ({ pr_url: 'https://github.com/foo/bar/pull/1' } as MulticaMetadata)
+        : ({} as MulticaMetadata)
+    );
+    vi.mocked(multica.getAllComments).mockResolvedValue([]);
 
     const app = await buildApp();
     const res = await app.inject({ method: 'GET', url: '/api/issues' });
@@ -85,6 +90,10 @@ describe('GET /api/issues', () => {
     });
 
     vi.mocked(multica.listIssues).mockResolvedValue([autopilotIssue, normalIssue]);
+    vi.mocked(multica.getMetadata).mockResolvedValue({
+      pr_url: 'https://github.com/foo/bar/pull/1',
+    });
+    vi.mocked(multica.getAllComments).mockResolvedValue([]);
 
     const app = await buildApp();
     const res = await app.inject({ method: 'GET', url: '/api/issues?include_autopilot=1' });
@@ -109,7 +118,7 @@ describe('GET /api/issues', () => {
     vi.mocked(multica.getMetadata).mockResolvedValue({
       pr_url: 'https://github.com/foo/bar/pull/42',
     });
-    vi.mocked(multica.getComments).mockResolvedValue([]);
+    vi.mocked(multica.getAllComments).mockResolvedValue([]);
 
     const app = await buildApp();
     const res = await app.inject({ method: 'GET', url: '/api/issues' });
@@ -130,7 +139,7 @@ describe('GET /api/issues', () => {
 
     vi.mocked(multica.listIssues).mockResolvedValue([autopilotWithPrComment]);
     vi.mocked(multica.getMetadata).mockResolvedValue({});
-    vi.mocked(multica.getComments).mockResolvedValue([
+    vi.mocked(multica.getAllComments).mockResolvedValue([
       {
         id: 'c1',
         content: 'Opened PR https://github.com/foo/bar/pull/99 for this.',
@@ -158,6 +167,10 @@ describe('GET /api/issues', () => {
     );
 
     vi.mocked(multica.listIssues).mockResolvedValue(many);
+    vi.mocked(multica.getMetadata).mockResolvedValue({
+      pr_url: 'https://github.com/foo/bar/pull/1',
+    });
+    vi.mocked(multica.getAllComments).mockResolvedValue([]);
 
     const app = await buildApp();
     const res = await app.inject({ method: 'GET', url: '/api/issues' });
