@@ -2,9 +2,9 @@
   "name": "coding-harness-viz",
   "private": true,
   "scripts": {
-    "dev": "pnpm --parallel -r dev",
+    "dev": "pnpm --filter @coding-harness/shared build && pnpm --parallel -r dev",
     "build": "pnpm -r build",
-    "typecheck": "pnpm -r typecheck",
+    "typecheck": "pnpm --filter @coding-harness/shared build && pnpm -r typecheck",
     "test": "pnpm -r --if-present test"
   },
   "devDependencies": {
