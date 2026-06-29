@@ -24,27 +24,9 @@ export function App() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>(getInitialStatusFilter);
   const { snapshot, error: harnessError, transition } = useHarness(selectedId);
+  const now = useClock();
   const [modalState, setModalState] = useState<HarnessState | null>(null);
   const { stats, loading: loadingStats, fetchStats } = useCodingStats(selectedId);
-
-  const handleToggleAutopilot = useCallback(() => {
-    setIncludeAutopilot((prev) => {
-      const next = !prev;
-      localStorage.setItem(LS_KEY, next ? '1' : '0');
-      return next;
-    });
-  }, []);
-
-  const handleStatusChange = useCallback((status: string) => {
-    setStatusFilter(status);
-    const url = new URL(window.location.href);
-    if (status === STATUS_FILTER_ALL) {
-      url.searchParams.delete('status');
-    } else {
-      url.searchParams.set('status', status);
-    }
-    window.history.replaceState(null, '', url.toString());
-  }, []);
 
   useEffect(() => {
     if (issuesData?.issues && !selectedId && issuesData.issues.length > 0) {
@@ -69,12 +51,32 @@ export function App() {
 
   const handleSelect = (id: string) => {
     setSelectedId(id);
+    setModalState(null);
     const issue = issuesData?.issues.find((i) => i.id === id);
     if (issue) {
       const url = new URL(window.location.href);
       url.searchParams.set('issue', issue.identifier);
       window.history.replaceState(null, '', url.toString());
     }
+  };
+
+  const handleStatusChange = (status: string) => {
+    setStatusFilter(status);
+    const url = new URL(window.location.href);
+    if (status === STATUS_FILTER_ALL) {
+      url.searchParams.delete('status');
+    } else {
+      url.searchParams.set('status', status);
+    }
+    window.history.replaceState(null, '', url.toString());
+  };
+
+  const handleToggleAutopilot = () => {
+    setIncludeAutopilot((prev) => {
+      const next = !prev;
+      localStorage.setItem(LS_KEY, next ? '1' : '0');
+      return next;
+    });
   };
 
   const allIssues = issuesData?.issues ?? [];
@@ -105,6 +107,15 @@ export function App() {
         <span style={{ fontSize: 20 }}>▓▓▓</span>
         CODING HARNESS
         <span style={{ fontSize: 20 }}>▓▓▓</span>
+        <span style={{ flex: 1 }} />
+        <span style={{
+          fontFamily: 'var(--font-body)',
+          fontSize: 22,
+          color: 'var(--accent-lime)',
+          letterSpacing: 1,
+        }}>
+          {formatClock(now)}
+        </span>
       </header>
 
       {showBanner && (

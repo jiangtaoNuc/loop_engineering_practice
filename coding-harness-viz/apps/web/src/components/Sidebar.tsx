@@ -1,5 +1,26 @@
 import type { HarnessSnapshot } from '@coding-harness/shared';
-import { STATE_LABELS } from '@coding-harness/shared';
+import { STATE_LABELS, HARNESS_STATES } from '@coding-harness/shared';
+
+function formatDateTime(iso: string | null): string {
+  if (!iso) return '--';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '--';
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mi = String(d.getMinutes()).padStart(2, '0');
+  return `${mm}/${dd} ${hh}:${mi}`;
+}
+
+function formatDuration(ms: number): string {
+  const totalSeconds = Math.floor(ms / 1000);
+  const s = totalSeconds % 60;
+  const m = Math.floor(totalSeconds / 60) % 60;
+  const h = Math.floor(totalSeconds / 3600);
+  if (h > 0) return `${h}h ${m}m`;
+  if (m > 0) return `${m}m ${String(s).padStart(2, '0')}s`;
+  return `${String(s).padStart(2, '0')}s`;
+}
 
 interface Props {
   snapshot: HarnessSnapshot;
@@ -34,6 +55,68 @@ export function Sidebar({ snapshot }: Props) {
           fontSize: 10,
         }}>
           {STATE_LABELS[state]}
+        </div>
+      </div>
+
+      <div>
+        <div style={{ fontFamily: 'var(--font-heading)', fontSize: 8, color: 'var(--text-dust)', marginBottom: 4 }}>
+          TIMELINE
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {HARNESS_STATES.map((s) => {
+            const ts = snapshot.perNode[s]?.enteredAt ?? null;
+            const hasTs = ts != null;
+            return (
+              <div key={s} style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '2px 0',
+                borderBottom: '1px dotted var(--ink-muted)',
+                opacity: hasTs ? 1 : 0.4,
+              }}>
+                <span style={{
+                  fontFamily: 'var(--font-heading)',
+                  fontSize: 7,
+                  color: hasTs ? 'var(--accent-cyan)' : 'var(--text-dust)',
+                }}>
+                  {STATE_LABELS[s]}
+                </span>
+                <span style={{
+                  fontFamily: 'var(--font-body)',
+                  fontSize: 13,
+                  color: hasTs ? 'var(--text-bone)' : 'var(--text-dust)',
+                }}>
+                  {formatDateTime(ts)}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+        <div style={{
+          marginTop: 8,
+          padding: '6px 8px',
+          background: 'var(--bg-deep)',
+          border: '2px solid var(--accent-lime)',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+        }}>
+          <span style={{
+            fontFamily: 'var(--font-heading)',
+            fontSize: 8,
+            color: 'var(--accent-lime)',
+          }}>
+            END-TO-END
+          </span>
+          <span style={{
+            fontFamily: 'var(--font-body)',
+            fontSize: 16,
+            color: 'var(--accent-lime)',
+            fontWeight: 'bold',
+          }}>
+            {formatDuration(snapshot.totalDurationMs)}
+          </span>
         </div>
       </div>
 

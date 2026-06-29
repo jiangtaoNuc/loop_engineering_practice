@@ -15,23 +15,24 @@ export async function issueRoutes(app: FastifyInstance): Promise<void> {
       const includeAutopilot = query.include_autopilot === '1';
 
       const issues = await multica.listIssues();
-      let filtered = issues;
 
-      if (!includeAutopilot) {
-        const filteredPromises = issues.map(async (issue) => {
-          if (issue.assignee_id !== SRE_AUTOPILOT_AGENT_ID) {
-            return issue;
-          }
-          const [metadata, comments] = await Promise.all([
-            multica.getMetadata(issue.id),
-            multica.getComments(issue.id),
-          ]);
-          const prUrl = extractPrUrl(metadata, comments);
-          return prUrl ? issue : null;
-        });
-        const results = await Promise.all(filteredPromises);
-        filtered = results.filter((i): i is multica.MulticaIssue => i !== null);
-      }
+      // Always filter out issues without PR URLs (both autopilot and non-autopilot)
+      const filteredPromises = issues.map(async (issue) => {
+        const metadata = await multica.getMetadata(issue.id);
+        if (metadata.pr_url && typeof metadata.pr_url === 'string') return issue;
+
+        const comments = await multica.getAllComments(issue.id);
+        const prUrl = extractPrUrl(metadata, comments);
+        if (!prUrl) return null;
+
+        // When autopilot is excluded, filter out autopilot issues even if they have PRs
+        if (!includeAutopilot && issue.assignee_id === SRE_AUTOPILOT_AGENT_ID) {
+          return null;
+        }
+        return issue;
+      });
+      const results = await Promise.all(filteredPromises);
+      let filtered = results.filter((i): i is multica.MulticaIssue => i !== null);
 
       const summaries: IssueSummary[] = filtered
         .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
@@ -78,17 +79,18 @@ export async function issueRoutes(app: FastifyInstance): Promise<void> {
     try {
       const [issue, comments, metadata] = await Promise.all([
         multica.getIssue(id),
-        multica.getComments(id),
+        multica.getAllComments(id),
         multica.getMetadata(id),
       ]);
 
-      const prUrl = metadata.pr_url as string | null;
+      const prUrl = extractPrUrl(metadata, comments);
       const prInfo = prUrl ? await github.getPrInfo(prUrl) : null;
 
       let deployInfo = null;
       if (prInfo?.merged && prInfo.mergeCommitSha) {
-        const owner = process.env.GITHUB_OWNER ?? '';
-        const repo = process.env.GITHUB_REPO ?? '';
+        const parsed = prUrl ? github.parsePrUrl(prUrl) : null;
+        const owner = parsed?.owner ?? process.env.GITHUB_OWNER ?? '';
+        const repo = parsed?.repo ?? process.env.GITHUB_REPO ?? '';
         const wf = process.env.DEPLOY_WORKFLOW_FILE ?? 'deploy.yml';
         deployInfo = await github.getDeployInfo(prInfo.mergeCommitSha, owner, repo, wf);
       }
@@ -124,16 +126,16 @@ export async function issueRoutes(app: FastifyInstance): Promise<void> {
         title: 'Error loading issue',
         state: 'issue_created',
         enteredAt: null,
-        stayedMs: 0,
         totalDurationMs: 0,
-        creatorId: null,
         creatorType: null,
+        creatorId: null,
         perNode: {},
         meta: {
           prUrl: null, deployUrl: null, assignee: null, lastComment: null, ciStatus: null,
           prDraft: false, prMerged: false, prClosed: false, deployFailed: false,
-          prTitle: null, prMergedAt: null, prMergeSha: null, prReviewDecision: null,
-          deployConclusion: null, deployStartedAt: null, deployCompletedAt: null,
+          issueCancelled: false, prTitle: null, prMergedAt: null, prMergeSha: null,
+          prReviewDecision: null, deployConclusion: null, deployStartedAt: null,
+          deployCompletedAt: null,
         },
         agentPickedUpAt: null,
         agentPickedUpSource: 'fallback',

@@ -40,6 +40,20 @@ export function deriveState(
 
   if (!hasAgent) return { state: 'issue_created', prUrl };
 
+  if (issue.status === 'done') {
+    if (deployInfo) return { state: 'deployed', prUrl };
+    if (prInfo?.merged) {
+      if (prInfo.ciStartedAt) return { state: 'ci', prUrl };
+      return { state: 'pr_merged', prUrl };
+    }
+    if (prInfo) return { state: 'pr_opened', prUrl };
+    if (hasAgent) return { state: 'agent_picked_up', prUrl };
+    return { state: 'issue_created', prUrl };
+  }
+  if (issue.status === 'cancelled' && !hasPr) {
+    return { state: 'issue_created', prUrl };
+  }
+
   if (!hasPr) return { state: 'agent_picked_up', prUrl };
 
   if (prInfo) {
@@ -48,9 +62,8 @@ export function deriveState(
     }
 
     if (prInfo.merged) {
-      if (deployInfo?.conclusion === 'success') {
-        return { state: 'deployed', prUrl };
-      }
+      if (deployInfo) return { state: 'deployed', prUrl };
+      if (prInfo.ciStartedAt) return { state: 'ci', prUrl };
       return { state: 'pr_merged', prUrl };
     }
 
@@ -64,53 +77,27 @@ export function deriveState(
   return { state: 'coding', prUrl };
 }
 
-function applyTransitions(
+function computeNodeTimestamps(
   issue: MulticaIssue,
-  state: HarnessState,
-  transitions: Transition[],
-  now: number,
-): { perNode: Record<HarnessState, NodeStatus>; totalDurationMs: number } {
-  const terminal = state === 'deployed' || issue.status === 'cancelled';
-  const endTime = terminal ? new Date(issue.updated_at).getTime() : now;
-  const totalDurationMs = Math.max(0, endTime - new Date(issue.created_at).getTime());
+  comments: MulticaComment[],
+  prInfo: PrInfo | null,
+  deployInfo: DeployInfo | null,
+): Record<HarnessState, string | null> {
+  const sorted = [...comments].sort(
+    (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+  );
+  const firstAgentComment = sorted.find((c) => c.author_type === 'agent');
+  const agentPickedUpAt = firstAgentComment?.created_at ?? null;
 
-  const perNode = {} as Record<HarnessState, NodeStatus>;
-  for (const s of HARNESS_STATES) {
-    perNode[s] = { state: s, enteredAt: null, leftAt: null, stayedMs: 0, durationSec: 0 };
-  }
-
-  perNode['issue_created'].enteredAt = issue.created_at;
-
-  for (const t of transitions) {
-    perNode[t.fromState].leftAt = t.at;
-    perNode[t.toState].enteredAt = t.at;
-  }
-
-  const currentIdx = HARNESS_STATES.indexOf(state);
-  for (let i = 0; i < HARNESS_STATES.length; i++) {
-    const s = HARNESS_STATES[i];
-    const node = perNode[s];
-
-    if (i < currentIdx) {
-      if (node.enteredAt && node.leftAt) {
-        node.stayedMs = Math.max(0, new Date(node.leftAt).getTime() - new Date(node.enteredAt).getTime());
-      }
-    } else if (i === currentIdx) {
-      if (!node.enteredAt) {
-        node.enteredAt = issue.created_at;
-      }
-      node.leftAt = terminal ? issue.updated_at : null;
-      node.stayedMs = Math.max(0, endTime - new Date(node.enteredAt).getTime());
-    } else {
-      node.enteredAt = null;
-      node.leftAt = null;
-      node.stayedMs = 0;
-    }
-
-    node.durationSec = Math.floor(node.stayedMs / 1000);
-  }
-
-  return { perNode, totalDurationMs };
+  return {
+    issue_created: issue.created_at,
+    agent_picked_up: agentPickedUpAt,
+    coding: agentPickedUpAt,
+    pr_opened: prInfo?.createdAt ?? null,
+    pr_merged: prInfo?.mergedAt ?? null,
+    ci: prInfo?.ciStartedAt ?? null,
+    deployed: deployInfo?.startedAt ?? null,
+  };
 }
 
 export function buildSnapshot(
@@ -122,10 +109,13 @@ export function buildSnapshot(
   agentName: string | null,
   transitions: Transition[] = [],
 ): HarnessSnapshot {
-  const now = Date.now();
   const { state, prUrl } = deriveState(issue, comments, metadata, prInfo, deployInfo);
+  const timestamps = computeNodeTimestamps(issue, comments, prInfo, deployInfo);
 
-  const { perNode, totalDurationMs } = applyTransitions(issue, state, transitions, now);
+  const perNode = {} as Record<HarnessState, NodeStatus>;
+  for (const s of HARNESS_STATES) {
+    perNode[s] = { state: s, enteredAt: timestamps[s] ?? null };
+  }
 
   const earliestStartedAt = extractEarliestStartedAt(comments);
   const agentPickedUpAt = earliestStartedAt ?? perNode.agent_picked_up.enteredAt ?? issue.created_at;
@@ -155,6 +145,7 @@ export function buildSnapshot(
     prMerged: prInfo?.merged ?? false,
     prClosed: prInfo != null && prInfo.state === 'closed' && !prInfo.merged,
     deployFailed: deployInfo?.conclusion === 'failure',
+    issueCancelled: issue.status === 'cancelled',
     prTitle: prInfo?.title ?? null,
     prMergedAt: prInfo?.mergedAt ?? null,
     prMergeSha: prInfo?.mergeCommitSha ?? null,
@@ -176,16 +167,27 @@ export function buildSnapshot(
     }),
   ).toString('base64url').slice(0, 32);
 
+  const createdAt = new Date(issue.created_at).getTime();
+  const allTimestamps = Object.values(timestamps).filter(
+    (t): t is string => t != null,
+  );
+  const lastTs = allTimestamps.length > 0
+    ? Math.max(...allTimestamps.map((t) => new Date(t).getTime()))
+    : null;
+  const endTime = issue.status === 'done' && lastTs && !isNaN(lastTs)
+    ? lastTs
+    : Date.now();
+  const totalDurationMs = !isNaN(createdAt) ? endTime - createdAt : 0;
+
   return {
     issueId: issue.id,
     identifier: issue.identifier,
     title: issue.title,
     state,
-    enteredAt: currentNode.enteredAt,
-    stayedMs: currentNode.stayedMs,
+    enteredAt: timestamps[state] ?? issue.created_at,
     totalDurationMs,
-    creatorId: issue.creator_id ?? null,
     creatorType: issue.creator_type ?? null,
+    creatorId: issue.creator_id ?? null,
     perNode,
     meta,
     agentPickedUpAt,

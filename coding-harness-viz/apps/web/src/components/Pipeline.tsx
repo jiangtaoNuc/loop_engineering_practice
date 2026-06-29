@@ -1,16 +1,30 @@
 import { useState, useEffect } from 'react';
 import type { HarnessSnapshot } from '@coding-harness/shared';
-import { HARNESS_STATES, STATE_LABELS, STATE_SHORT } from '@coding-harness/shared';
+import { HARNESS_STATES, STATE_LABELS } from '@coding-harness/shared';
 import type { HarnessState } from '@coding-harness/shared';
 
-function formatDuration(ms: number): string {
-  if (ms <= 0) return '--';
-  const s = Math.floor(ms / 1000);
-  const m = Math.floor(s / 60);
-  const h = Math.floor(m / 60);
-  if (h > 0) return `${h}h ${m % 60}m`;
-  if (m > 0) return `${m}m ${s % 60}s`;
-  return `${s}s`;
+function formatTimestamp(iso: string | null): string {
+  if (!iso) return '--';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '--';
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mi = String(d.getMinutes()).padStart(2, '0');
+  return `${mm}/${dd} ${hh}:${mi}`;
+}
+
+function formatFullTimestamp(iso: string | null): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mi = String(d.getMinutes()).padStart(2, '0');
+  const ss = String(d.getSeconds()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd} ${hh}:${mi}:${ss}`;
 }
 
 function formatTotalDuration(ms: number): string {
@@ -39,12 +53,13 @@ interface NodeCardProps {
   state: HarnessState;
   currentIndex: number;
   stateIndex: number;
-  node: { enteredAt: string | null; leftAt: string | null; stayedMs: number };
+  enteredAt: string | null;
   isFailed: boolean;
+  isCancelled: boolean;
   onClick: () => void;
 }
 
-function NodeCard({ state, currentIndex, stateIndex, node, isFailed, onClick }: NodeCardProps) {
+function NodeCard({ state, currentIndex, stateIndex, enteredAt, isFailed, isCancelled, onClick }: NodeCardProps) {
   const [showLightUp, setShowLightUp] = useState(false);
   const isCompleted = stateIndex < currentIndex;
   const isCurrent = stateIndex === currentIndex;
@@ -61,10 +76,22 @@ function NodeCard({ state, currentIndex, stateIndex, node, isFailed, onClick }: 
   const bg = isCompleted
     ? 'var(--accent-lime)'
     : isCurrent
-    ? 'var(--accent-cyan)'
+    ? isCancelled
+      ? 'var(--ink-muted)'
+      : 'var(--accent-cyan)'
     : 'var(--ink-muted)';
 
   const textColor = isCompleted || isCurrent ? 'var(--bg-deep)' : 'var(--text-dust)';
+
+  const borderColor = isFailed
+    ? 'var(--accent-red)'
+    : isCurrent
+    ? isCancelled
+      ? 'var(--ink-muted)'
+      : 'var(--accent-cyan)'
+    : isCompleted
+    ? 'var(--accent-lime)'
+    : 'var(--ink-muted)';
 
   const animClass = isCurrent
     ? 'anim-heartbeat'
@@ -80,88 +107,59 @@ function NodeCard({ state, currentIndex, stateIndex, node, isFailed, onClick }: 
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-      <div
-        role="button"
-        tabIndex={0}
-        aria-label={`${STATE_LABELS[state]} details`}
-        onClick={onClick}
-        onKeyDown={handleKeyDown}
-        className={animClass}
-        style={{
-          width: 'var(--node-size)',
-          height: 'var(--node-size)',
-          background: bg,
-          border: `4px solid ${isFailed ? 'var(--accent-red)' : isCurrent ? 'var(--accent-cyan)' : isCompleted ? 'var(--accent-lime)' : 'var(--ink-muted)'}`,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 2,
-          position: 'relative',
-          animation: isCurrent
-            ? 'heartbeat 1.2s steps(8) infinite'
-            : isFailed
-            ? 'failShake 0.4s steps(6) 3'
-            : showLightUp
-            ? 'nodeLightUp 1s steps(12) 1'
-            : 'none',
-          imageRendering: 'pixelated',
-          flexShrink: 0,
-          cursor: 'pointer',
-          outline: 'none',
-        }}
-      >
-        <span style={{
-          fontFamily: 'var(--font-heading)',
-          fontSize: 8,
-          color: textColor,
-          textAlign: 'center',
-          lineHeight: 1.2,
-        }}>
-          {STATE_SHORT[state]}
-        </span>
-        {isCompleted && (
-          <span style={{ fontSize: 16, color: 'var(--bg-deep)' }}>✓</span>
-        )}
-        {isCurrent && (
-          <span style={{ fontSize: 12, color: 'var(--bg-deep)' }}>●</span>
-        )}
-      </div>
-
+    <div
+      className={animClass}
+      onClick={onClick}
+      title={`${STATE_LABELS[state]}: ${formatFullTimestamp(enteredAt)}`}
+      style={{
+        width: 'var(--node-size)',
+        height: 'var(--node-size)',
+        background: bg,
+        border: `4px solid ${isFailed ? 'var(--accent-red)' : isCurrent ? 'var(--accent-cyan)' : isCompleted ? 'var(--accent-lime)' : 'var(--ink-muted)'}`,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 4,
+        position: 'relative',
+        animation: isCurrent
+          ? 'heartbeat 1.2s steps(8) infinite'
+          : isFailed
+          ? 'failShake 0.4s steps(6) 3'
+          : showLightUp
+          ? 'nodeLightUp 1s steps(12) 1'
+          : 'none',
+        imageRendering: 'pixelated',
+        flexShrink: 0,
+        padding: '4px 6px',
+        cursor: 'pointer',
+      }}
+    >
       <span style={{
-        fontFamily: 'var(--font-body)',
-        fontSize: 13,
-        color: 'var(--text-dust)',
-        marginTop: 12,
-        whiteSpace: 'nowrap',
+        fontFamily: 'var(--font-heading)',
+        fontSize: 9,
+        color: textColor,
+        textAlign: 'center',
+        lineHeight: 1.3,
+        wordBreak: 'break-word',
       }}>
         {STATE_LABELS[state]}
       </span>
-
+      {isCompleted && (
+        <span style={{ fontSize: 18, color: 'var(--bg-deep)' }}>✓</span>
+      )}
+      {isCurrent && (
+        <span style={{ fontSize: 14, color: 'var(--bg-deep)' }}>●</span>
+      )}
       <span style={{
         fontFamily: 'var(--font-body)',
-        fontSize: 12,
-        color: 'var(--text-dust)',
+        fontSize: 15,
+        color: isPending ? 'var(--text-dust)' : textColor,
+        position: 'absolute',
+        bottom: -24,
         whiteSpace: 'nowrap',
       }}>
-        START {formatDateTime(isPending ? null : node.enteredAt)}
-      </span>
-      <span style={{
-        fontFamily: 'var(--font-body)',
-        fontSize: 12,
-        color: 'var(--text-dust)',
-        whiteSpace: 'nowrap',
-      }}>
-        END {formatDateTime(isPending ? null : node.leftAt)}
-      </span>
-      <span style={{
-        fontFamily: 'var(--font-body)',
-        fontSize: 12,
-        color: isCurrent ? 'var(--accent-cyan)' : 'var(--text-dust)',
-        whiteSpace: 'nowrap',
-      }}>
-        DURATION {isPending ? '--' : formatDuration(node.stayedMs)}
+        {formatTimestamp(enteredAt)}
       </span>
     </div>
   );
@@ -201,6 +199,7 @@ export function Pipeline({ snapshot, transition, onNodeClick }: Props) {
   const currentIndex = HARNESS_STATES.indexOf(snapshot.state);
   const isDeployFailed = snapshot.meta.deployFailed;
   const isPrClosed = snapshot.meta.prClosed;
+  const isCancelled = snapshot.meta.issueCancelled;
 
   return (
     <div style={{ position: 'relative' }}>
@@ -226,7 +225,7 @@ export function Pipeline({ snapshot, transition, onNodeClick }: Props) {
         alignItems: 'flex-start',
         padding: '56px 24px 60px',
         justifyContent: 'center',
-        minWidth: 700,
+        minWidth: 900,
       }}>
         {HARNESS_STATES.map((state, idx) => {
           const isFailed =
@@ -239,8 +238,9 @@ export function Pipeline({ snapshot, transition, onNodeClick }: Props) {
                 state={state}
                 currentIndex={currentIndex}
                 stateIndex={idx}
-                node={snapshot.perNode[state] ?? { enteredAt: null, leftAt: null, stayedMs: 0 }}
+                enteredAt={snapshot.perNode[state]?.enteredAt ?? null}
                 isFailed={isFailed}
+                isCancelled={isCancelled && idx === currentIndex}
                 onClick={() => onNodeClick(state)}
               />
               {idx < HARNESS_STATES.length - 1 && (
