@@ -113,8 +113,23 @@ export function buildSnapshot(
   const timestamps = computeNodeTimestamps(issue, comments, prInfo, deployInfo);
 
   const perNode = {} as Record<HarnessState, NodeStatus>;
-  for (const s of HARNESS_STATES) {
-    perNode[s] = { state: s, enteredAt: timestamps[s] ?? null };
+  for (let i = 0; i < HARNESS_STATES.length; i++) {
+    const s = HARNESS_STATES[i];
+    const enteredAt = timestamps[s] ?? null;
+    let leftAt: string | null = null;
+    if (enteredAt) {
+      for (let j = i + 1; j < HARNESS_STATES.length; j++) {
+        const nextTs = timestamps[HARNESS_STATES[j]];
+        if (nextTs) {
+          leftAt = nextTs;
+          break;
+        }
+      }
+    }
+    const stayedMs = enteredAt
+      ? Math.max(0, new Date(leftAt ?? Date.now()).getTime() - new Date(enteredAt).getTime())
+      : 0;
+    perNode[s] = { state: s, enteredAt, leftAt, stayedMs };
   }
 
   const earliestStartedAt = extractEarliestStartedAt(comments);
@@ -126,10 +141,9 @@ export function buildSnapshot(
     const currentIdx = HARNESS_STATES.indexOf(state);
     if (apuIdx <= currentIdx) {
       perNode.agent_picked_up.enteredAt = agentPickedUpAt;
-      if (apuIdx === currentIdx) {
-        perNode.agent_picked_up.stayedMs = Math.max(0, now - new Date(agentPickedUpAt).getTime());
-        perNode.agent_picked_up.durationSec = Math.floor(perNode.agent_picked_up.stayedMs / 1000);
-      }
+      const apuLeftAt = perNode.agent_picked_up.leftAt;
+      perNode.agent_picked_up.stayedMs = Math.max(0, new Date(apuLeftAt ?? Date.now()).getTime() - new Date(agentPickedUpAt).getTime());
+      perNode.agent_picked_up.durationSec = Math.floor(perNode.agent_picked_up.stayedMs / 1000);
     }
   }
 

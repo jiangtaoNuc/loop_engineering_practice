@@ -24,7 +24,6 @@ export function App() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>(getInitialStatusFilter);
   const { snapshot, error: harnessError, transition } = useHarness(selectedId);
-  const now = useClock();
   const [modalState, setModalState] = useState<HarnessState | null>(null);
   const { stats, loading: loadingStats, fetchStats } = useCodingStats(selectedId);
 
@@ -107,15 +106,6 @@ export function App() {
         <span style={{ fontSize: 20 }}>▓▓▓</span>
         CODING HARNESS
         <span style={{ fontSize: 20 }}>▓▓▓</span>
-        <span style={{ flex: 1 }} />
-        <span style={{
-          fontFamily: 'var(--font-body)',
-          fontSize: 22,
-          color: 'var(--accent-lime)',
-          letterSpacing: 1,
-        }}>
-          {formatClock(now)}
-        </span>
       </header>
 
       {showBanner && (
