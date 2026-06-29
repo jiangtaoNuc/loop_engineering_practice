@@ -63,18 +63,27 @@ export interface HarnessSnapshot {
   creatorId: string | null;
   perNode: Record<HarnessState, NodeStatus>;
   meta: HarnessMeta;
+  agentPickedUpAt: string | null;
+  agentPickedUpSource: 'log' | 'fallback';
   degraded: boolean;
   etag: string;
 }
 
 export interface CodingStats {
   available: boolean;
-  toolCalls: number;
-  tokensIn: number;
-  tokensOut: number;
-  turns: number;
+  startedAt: string | null;
+  endedAt: string | null;
+  durationSec: number | null;
+  toolCalls: number | null;
+  events: number | null;
+  turns: number | null;
   sampleCommentId?: string;
   sampleAt?: string;
+}
+
+export interface CodingStatsResponse {
+  issueId: string;
+  stats: CodingStats;
 }
 
 export interface IssueSummary {

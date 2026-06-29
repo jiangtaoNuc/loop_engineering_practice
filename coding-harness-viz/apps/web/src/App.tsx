@@ -7,36 +7,13 @@ import { Sidebar } from './components/Sidebar';
 import { Banner } from './components/Banner';
 import { NodeDetailModal } from './components/NodeDetailModal';
 import type { HarnessState } from '@coding-harness/shared';
-import { STATUS_FILTER_ALL, ISSUE_STATUSES } from '@coding-harness/shared';
+import { STATUS_FILTER_ALL } from '@coding-harness/shared';
 
-const LS_KEY = 'chv:includeAutopilot';
+const LS_KEY = 'coding-harness-include-autopilot';
 
 function getInitialStatusFilter(): string {
   const params = new URLSearchParams(window.location.search);
-  const fromUrl = params.get('status');
-  if (fromUrl && (fromUrl === STATUS_FILTER_ALL || (ISSUE_STATUSES as string[]).includes(fromUrl))) {
-    return fromUrl;
-  }
-  return STATUS_FILTER_ALL;
-}
-
-function useClock() {
-  const [now, setNow] = useState(() => new Date());
-  useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(id);
-  }, []);
-  return now;
-}
-
-function formatClock(d: Date): string {
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
-  const hh = String(d.getHours()).padStart(2, '0');
-  const mi = String(d.getMinutes()).padStart(2, '0');
-  const ss = String(d.getSeconds()).padStart(2, '0');
-  return `${yyyy}-${mm}-${dd} ${hh}:${mi}:${ss}`;
+  return params.get('status') ?? STATUS_FILTER_ALL;
 }
 
 export function App() {
@@ -67,6 +44,10 @@ export function App() {
       fetchStats();
     }
   }, [modalState, fetchStats]);
+
+  useEffect(() => {
+    setModalState(null);
+  }, [selectedId]);
 
   const handleSelect = (id: string) => {
     setSelectedId(id);

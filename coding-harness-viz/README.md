@@ -119,7 +119,29 @@ The base directory can be overridden with `HARNESS_DATA_DIR`. Writes are atomic 
 
 ### Coding stats footer protocol
 
-Agents can self-report coding telemetry by including an HTML comment footer in any comment:
+Agents self-report coding telemetry by including an HTML comment footer in their final comment. The protocol has two versions:
+
+**v2 (current):**
+
+```
+<!-- coding-stats v2
+started_at: 2026-06-26T08:43:45Z
+ended_at: 2026-06-26T08:46:12Z
+tool_calls: 42
+events: 137
+turns: 5
+-->
+```
+
+| Field | Description |
+|-------|-------------|
+| `started_at` | ISO timestamp when the agent run started |
+| `ended_at` | ISO timestamp when the agent run ended (omitted while running) |
+| `tool_calls` | Number of tool invocations |
+| `events` | Total log entry count |
+| `turns` | Number of interaction turns |
+
+**v1 (legacy, still parsed):**
 
 ```
 <!-- coding-stats
@@ -130,7 +152,18 @@ turns: 5
 -->
 ```
 
-`GET /api/issues/:id/coding-stats` scans the 50 most recent comments and returns the latest agent-reported block. The frontend fetches this lazily when the **coding** node detail modal is opened.
+v1 footers are still parsed for backward compatibility. Fields not present in v1 (`started_at`, `ended_at`, `events`) display as `--` in the modal.
+
+`GET /api/issues/:id/coding-stats` scans the 50 most recent comments and returns the latest agent-reported block. Duration is computed server-side: `durationSec = (endedAt - startedAt) / 1000`. The frontend fetches this lazily when the **coding** node detail modal is opened.
+
+### Agent Picked Up source
+
+The `Agent Picked Up` node's timestamp is derived from the **earliest** v2 footer's `started_at` across all agent comments on the issue. The snapshot includes:
+
+- `agentPickedUpAt` — the derived timestamp (or issue creation time as fallback)
+- `agentPickedUpSource` — `'log'` when a v2 footer was found, `'fallback'` when no footer exists
+
+When source is `fallback`, the modal displays a `(fallback)` annotation explaining that no v2 coding-stats footer was found and the issue creation time is used instead.
 
 ## Deployment
 

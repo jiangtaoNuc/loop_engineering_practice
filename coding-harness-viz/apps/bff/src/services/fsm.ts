@@ -8,6 +8,7 @@ import { HARNESS_STATES } from '@coding-harness/shared';
 import type { MulticaIssue, MulticaComment, MulticaMetadata } from './multica-cli.js';
 import type { PrInfo, DeployInfo } from './github.js';
 import type { Transition } from './transitions.js';
+import { extractEarliestStartedAt } from './coding-stats.js';
 
 export const PR_URL_RE = /https?:\/\/github\.com\/[^/]+\/[^/]+\/pull\/\d+/;
 
@@ -116,6 +117,22 @@ export function buildSnapshot(
     perNode[s] = { state: s, enteredAt: timestamps[s] ?? null };
   }
 
+  const earliestStartedAt = extractEarliestStartedAt(comments);
+  const agentPickedUpAt = earliestStartedAt ?? perNode.agent_picked_up.enteredAt ?? issue.created_at;
+  const agentPickedUpSource: 'log' | 'fallback' = earliestStartedAt ? 'log' : 'fallback';
+
+  if (agentPickedUpAt) {
+    const apuIdx = HARNESS_STATES.indexOf('agent_picked_up');
+    const currentIdx = HARNESS_STATES.indexOf(state);
+    if (apuIdx <= currentIdx) {
+      perNode.agent_picked_up.enteredAt = agentPickedUpAt;
+      if (apuIdx === currentIdx) {
+        perNode.agent_picked_up.stayedMs = Math.max(0, now - new Date(agentPickedUpAt).getTime());
+        perNode.agent_picked_up.durationSec = Math.floor(perNode.agent_picked_up.stayedMs / 1000);
+      }
+    }
+  }
+
   const deployUrl = (metadata.deploy_url as string) ?? deployInfo?.runUrl ?? null;
 
   const meta: HarnessMeta = {
@@ -145,6 +162,8 @@ export function buildSnapshot(
       u: issue.updated_at,
       d: deployInfo?.conclusion,
       e: currentNode?.enteredAt,
+      l: currentNode?.leftAt,
+      a: agentPickedUpAt,
     }),
   ).toString('base64url').slice(0, 32);
 
@@ -171,6 +190,8 @@ export function buildSnapshot(
     creatorId: issue.creator_id ?? null,
     perNode,
     meta,
+    agentPickedUpAt,
+    agentPickedUpSource,
     degraded: false,
     etag,
   };

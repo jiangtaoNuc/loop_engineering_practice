@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import type { HarnessSnapshot, IssuesListResponse, CodingStats } from '@coding-harness/shared';
+import type { HarnessSnapshot, IssuesListResponse, CodingStats, CodingStatsResponse } from '@coding-harness/shared';
 
 const POLL_BASE = 7000;
 const FETCH_TIMEOUT_MS = 10000;
@@ -180,11 +180,19 @@ export function useCodingStats(issueId: string | null) {
     try {
       const res = await fetch(`/api/issues/${issueId}/coding-stats`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const body: CodingStats = await res.json();
-      setStats(body);
+      const body: CodingStatsResponse = await res.json();
+      setStats(body.stats);
     } catch {
       setError(true);
-      setStats({ available: false, toolCalls: 0, tokensIn: 0, tokensOut: 0, turns: 0 });
+      setStats({
+        available: false,
+        startedAt: null,
+        endedAt: null,
+        durationSec: null,
+        toolCalls: null,
+        events: null,
+        turns: null,
+      });
     } finally {
       setLoading(false);
     }

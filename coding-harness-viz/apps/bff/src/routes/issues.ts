@@ -1,12 +1,12 @@
 import type { FastifyInstance } from 'fastify';
-import type { IssuesListResponse, IssueSummary, CodingStats } from '@coding-harness/shared';
+import type { IssuesListResponse, IssueSummary, CodingStatsResponse } from '@coding-harness/shared';
 import * as multica from '../services/multica-cli.js';
 import * as github from '../services/github.js';
 import { deriveState, buildSnapshot, extractPrUrl } from '../services/fsm.js';
 import { getTransitions, recordTransition } from '../services/transitions.js';
 import { extractCodingStats } from '../services/coding-stats.js';
-import { SRE_AUTOPILOT_AGENT_ID, ISSUE_LIST_LIMIT } from '../constants.js';
 import { isMockMode, mockGetHarness } from '../services/mock.js';
+import { SRE_AUTOPILOT_AGENT_ID, ISSUE_LIST_LIMIT } from '../constants.js';
 
 export async function issueRoutes(app: FastifyInstance): Promise<void> {
   app.get('/api/issues', async (req, reply) => {
@@ -137,6 +137,8 @@ export async function issueRoutes(app: FastifyInstance): Promise<void> {
           prReviewDecision: null, deployConclusion: null, deployStartedAt: null,
           deployCompletedAt: null,
         },
+        agentPickedUpAt: null,
+        agentPickedUpSource: 'fallback',
         degraded: true,
         etag: 'error',
       });
@@ -148,18 +150,23 @@ export async function issueRoutes(app: FastifyInstance): Promise<void> {
 
     try {
       const comments = await multica.getCommentsForCodingStats(id);
-      const stats: CodingStats = extractCodingStats(comments);
-      return stats;
+      const stats = extractCodingStats(comments);
+      const body: CodingStatsResponse = { issueId: id, stats };
+      return body;
     } catch (err) {
       console.error(`GET /api/issues/${id}/coding-stats failed:`, err);
-      const stats: CodingStats = {
-        available: false,
-        toolCalls: 0,
-        tokensIn: 0,
-        tokensOut: 0,
-        turns: 0,
-      };
-      return reply.code(200).send(stats);
+      return reply.code(200).send({
+        issueId: id,
+        stats: {
+          available: false,
+          startedAt: null,
+          endedAt: null,
+          durationSec: null,
+          toolCalls: null,
+          events: null,
+          turns: null,
+        },
+      });
     }
   });
 }
