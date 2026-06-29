@@ -3,11 +3,7 @@
   "compilerOptions": {
     "outDir": "./dist",
     "module": "ESNext",
-    "moduleResolution": "bundler",
-    "baseUrl": ".",
-    "paths": {
-      "@coding-harness/shared": ["../../packages/shared/src/index.ts"]
-    }
+    "moduleResolution": "bundler"
   },
   "include": ["src"]
 }

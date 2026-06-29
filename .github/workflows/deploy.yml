@@ -95,7 +95,11 @@ jobs:
           # BFF workspace root
           cp deploy-src/package.json staging/bff/
           cp deploy-src/pnpm-lock.yaml staging/bff/
-          cp deploy-src/pnpm-workspace.yaml staging/bff/
+          cat > staging/bff/pnpm-workspace.yaml <<'EOF'
+        packages:
+          - 'apps/bff'
+          - 'packages/shared'
+        EOF
 
           # BFF app
           cp deploy-src/apps/bff/package.json staging/bff/apps/bff/
