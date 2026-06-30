@@ -49,6 +49,56 @@ function formatDateTime(iso: string | null): string {
   return `${yyyy}-${mm}-${dd} ${hh}:${mi}:${ss}`;
 }
 
+// Canonical display status for a pipeline node, normalized once from the raw
+// signals the BFF emits so node colors stay consistent with the Sidebar and the
+// spec: success→green, failure→red, pending→blue.
+//
+// Known status values that reach this component (all produced by
+// apps/bff/src/services/fsm.ts — no other status strings are sent over the
+// wire, so only these are covered here):
+//   - snapshot.state ∈ HARNESS_STATES:
+//       "issue_created" | "agent_picked_up" | "coding" | "pr_opened"
+//       | "pr_merged" | "ci" | "deployed"
+//   - deploy success  → snapshot.state === "deployed"
+//                       (fsm.ts: deployInfo.conclusion === "success")
+//   - deploy failure  → snapshot.meta.deployFailed === true
+//                       (fsm.ts: deployInfo.conclusion === "failure")
+//   - PR closed w/o merge → snapshot.meta.prClosed === true
+//   - issue cancelled → snapshot.meta.issueCancelled === true
+//
+// Color mapping (matches design tokens in design-tokens.ts):
+//   success → green (var(--accent-lime))  — completed nodes + terminal "deployed"
+//   failure → red   (var(--accent-red))   — failed deploy / closed-without-merge
+//   pending → blue  (var(--ink-muted))    — nodes not yet reached, or cancelled-current
+//   active  → cyan  (var(--accent-cyan))  — the single in-progress node (transient)
+type NodeDisplayStatus = 'success' | 'failure' | 'active' | 'pending';
+
+const STATUS_COLOR: Record<NodeDisplayStatus, string> = {
+  success: 'var(--accent-lime)',
+  failure: 'var(--accent-red)',
+  active: 'var(--accent-cyan)',
+  pending: 'var(--ink-muted)',
+};
+
+function resolveNodeStatus(args: {
+  stateIndex: number;
+  currentIndex: number;
+  isFailed: boolean;
+  isCancelled: boolean;
+  reachedDeployed: boolean;
+}): NodeDisplayStatus {
+  const { stateIndex, currentIndex, isFailed, isCancelled, reachedDeployed } = args;
+  if (isFailed) return 'failure';
+  // Terminal "deployed" node is success once reached; otherwise it falls into
+  // the active branch and renders cyan/blue forever (the reported bug).
+  const isCompleted =
+    stateIndex < currentIndex ||
+    (reachedDeployed && stateIndex === currentIndex);
+  if (isCompleted) return 'success';
+  if (stateIndex === currentIndex) return isCancelled ? 'pending' : 'active';
+  return 'pending';
+}
+
 interface NodeCardProps {
   state: HarnessState;
   currentIndex: number;
@@ -57,15 +107,16 @@ interface NodeCardProps {
   isFailed: boolean;
   isCancelled: boolean;
   onClick: () => void;
+  reachedDeployed: boolean;
 }
 
-function NodeCard({ state, currentIndex, stateIndex, enteredAt, isFailed, isCancelled, onClick, reachedDeployed }: NodeCardProps & { reachedDeployed: boolean }) {
+function NodeCard({ state, currentIndex, stateIndex, enteredAt, isFailed, isCancelled, onClick, reachedDeployed }: NodeCardProps) {
   const [showLightUp, setShowLightUp] = useState(false);
-  // Terminal "deployed" node is completed once the pipeline reaches it.
-  // Without this, it falls into the isCurrent branch and stays cyan/blue.
-  const isCompleted = stateIndex < currentIndex || (reachedDeployed && stateIndex === currentIndex);
-  const isCurrent = !isCompleted && stateIndex === currentIndex;
-  const isPending = stateIndex > currentIndex;
+  const status = resolveNodeStatus({ stateIndex, currentIndex, isFailed, isCancelled, reachedDeployed });
+  const isCompleted = status === 'success';
+  const isCurrent = status === 'active';
+  const isPending = status === 'pending';
+  const color = STATUS_COLOR[status];
 
   useEffect(() => {
     if (isCurrent) {
@@ -75,25 +126,7 @@ function NodeCard({ state, currentIndex, stateIndex, enteredAt, isFailed, isCanc
     }
   }, [isCurrent]);
 
-  const bg = isCompleted
-    ? 'var(--accent-lime)'
-    : isCurrent
-    ? isCancelled
-      ? 'var(--ink-muted)'
-      : 'var(--accent-cyan)'
-    : 'var(--ink-muted)';
-
   const textColor = isCompleted || isCurrent ? 'var(--bg-deep)' : 'var(--text-dust)';
-
-  const borderColor = isFailed
-    ? 'var(--accent-red)'
-    : isCurrent
-    ? isCancelled
-      ? 'var(--ink-muted)'
-      : 'var(--accent-cyan)'
-    : isCompleted
-    ? 'var(--accent-lime)'
-    : 'var(--ink-muted)';
 
   const animClass = isCurrent
     ? 'anim-heartbeat'
@@ -116,8 +149,8 @@ function NodeCard({ state, currentIndex, stateIndex, enteredAt, isFailed, isCanc
       style={{
         width: 'var(--node-size)',
         height: 'var(--node-size)',
-        background: bg,
-        border: `4px solid ${isFailed ? 'var(--accent-red)' : isCurrent ? 'var(--accent-cyan)' : isCompleted ? 'var(--accent-lime)' : 'var(--ink-muted)'}`,
+        background: color,
+        border: `4px solid ${color}`,
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
@@ -152,6 +185,9 @@ function NodeCard({ state, currentIndex, stateIndex, enteredAt, isFailed, isCanc
       )}
       {isCurrent && (
         <span style={{ fontSize: 14, color: 'var(--bg-deep)' }}>●</span>
+      )}
+      {isFailed && (
+        <span style={{ fontSize: 18, color: 'var(--bg-deep)' }}>✗</span>
       )}
       <span style={{
         fontFamily: 'var(--font-body)',
