@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { IssuesListResponse, IssueSummary, CodingStatsResponse } from '@coding-harness/shared';
 import * as multica from '../services/multica-cli.js';
+import { isCliTimeoutError } from '../services/multica-cli.js';
 import * as github from '../services/github.js';
 import { deriveState, buildSnapshot, extractPrUrl } from '../services/fsm.js';
 import { getTransitions, recordTransition } from '../services/transitions.js';
@@ -156,6 +157,12 @@ export async function issueRoutes(app: FastifyInstance): Promise<void> {
       return body;
     } catch (err) {
       console.error(`GET /api/issues/${id}/coding-stats failed:`, err);
+      if (isCliTimeoutError(err)) {
+        return reply.code(504).send({
+          error: 'multica CLI timeout',
+          detail: err.message,
+        });
+      }
       return reply.code(200).send({
         issueId: id,
         stats: {

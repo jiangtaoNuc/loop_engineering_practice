@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import type { HarnessSnapshot, HarnessState, CodingStats } from '@coding-harness/shared';
 import { STATE_LABELS } from '@coding-harness/shared';
+import type { NetworkError } from '../hooks/useHarness';
 
 function formatDateTime(iso: string | null): string {
   if (!iso) return '--';
@@ -81,10 +82,11 @@ interface Props {
   state: HarnessState;
   stats: CodingStats | null;
   loadingStats: boolean;
+  statsError: NetworkError | null;
   onClose: () => void;
 }
 
-export function NodeDetailModal({ snapshot, state, stats, loadingStats, onClose }: Props) {
+export function NodeDetailModal({ snapshot, state, stats, loadingStats, statsError, onClose }: Props) {
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -205,7 +207,12 @@ export function NodeDetailModal({ snapshot, state, stats, loadingStats, onClose 
               {loadingStats && (
                 <div style={{ color: 'var(--text-dust)', padding: '16px 0' }}>▒▒▒ LOADING... ▒▒▒</div>
               )}
-              {!loadingStats && (!stats || !stats.available) && (
+              {!loadingStats && statsError && (
+                <div style={{ color: 'var(--accent-red)', fontFamily: 'var(--font-heading)', fontSize: 10, padding: '16px 0' }}>
+                  {statsError.message.toUpperCase()}
+                </div>
+              )}
+              {!loadingStats && !statsError && (!stats || !stats.available) && (
                 <div style={{ color: 'var(--accent-red)', fontFamily: 'var(--font-heading)', fontSize: 10, padding: '16px 0' }}>
                   NO TELEMETRY YET
                 </div>
