@@ -59,10 +59,12 @@ interface NodeCardProps {
   onClick: () => void;
 }
 
-function NodeCard({ state, currentIndex, stateIndex, enteredAt, isFailed, isCancelled, onClick }: NodeCardProps) {
+function NodeCard({ state, currentIndex, stateIndex, enteredAt, isFailed, isCancelled, onClick, reachedDeployed }: NodeCardProps & { reachedDeployed: boolean }) {
   const [showLightUp, setShowLightUp] = useState(false);
-  const isCompleted = stateIndex < currentIndex;
-  const isCurrent = stateIndex === currentIndex;
+  // Terminal "deployed" node is completed once the pipeline reaches it.
+  // Without this, it falls into the isCurrent branch and stays cyan/blue.
+  const isCompleted = stateIndex < currentIndex || (reachedDeployed && stateIndex === currentIndex);
+  const isCurrent = !isCompleted && stateIndex === currentIndex;
   const isPending = stateIndex > currentIndex;
 
   useEffect(() => {
@@ -200,6 +202,7 @@ export function Pipeline({ snapshot, transition, onNodeClick }: Props) {
   const isDeployFailed = snapshot.meta.deployFailed;
   const isPrClosed = snapshot.meta.prClosed;
   const isCancelled = snapshot.meta.issueCancelled;
+  const reachedDeployed = snapshot.state === 'deployed';
 
   return (
     <div style={{ position: 'relative' }}>
@@ -242,6 +245,7 @@ export function Pipeline({ snapshot, transition, onNodeClick }: Props) {
                 isFailed={isFailed}
                 isCancelled={isCancelled && idx === currentIndex}
                 onClick={() => onNodeClick(state)}
+                reachedDeployed={reachedDeployed}
               />
               {idx < HARNESS_STATES.length - 1 && (
                 <Pipe active={idx < currentIndex} direction="right" />
