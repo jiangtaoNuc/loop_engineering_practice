@@ -8,6 +8,14 @@ vi.mock('../services/multica-cli.js', () => ({
   getMetadata: vi.fn(),
   getComments: vi.fn(),
   getAllComments: vi.fn(),
+  getCommentsForCodingStats: vi.fn(),
+  CliTimeoutError: class CliTimeoutError extends Error {
+    constructor(message: string, public readonly command: string) {
+      super(message);
+      this.name = 'CliTimeoutError';
+    }
+  },
+  isCliTimeoutError: (err: unknown): err is Error => err instanceof Error && err.name === 'CliTimeoutError',
 }));
 
 vi.mock('../services/github.js', () => ({
@@ -178,5 +186,26 @@ describe('GET /api/issues', () => {
 
     expect(body.issues).toHaveLength(ISSUE_LIST_LIMIT);
     expect(ISSUE_LIST_LIMIT).toBe(50);
+  });
+});
+
+describe('GET /api/issues/:id/coding-stats', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns 504 when multica CLI times out', async () => {
+    const { CliTimeoutError } = await import('../services/multica-cli.js');
+    vi.mocked(multica.getCommentsForCodingStats).mockRejectedValue(
+      new CliTimeoutError('Command timed out after 15000ms', 'multica issue comment list x --recent 50'),
+    );
+
+    const app = await buildApp();
+    const res = await app.inject({ method: 'GET', url: '/api/issues/x/coding-stats' });
+    const body = JSON.parse(res.payload);
+
+    expect(res.statusCode).toBe(504);
+    expect(body.error).toBe('multica CLI timeout');
+    expect(body.detail).toBe('Command timed out after 15000ms');
   });
 });

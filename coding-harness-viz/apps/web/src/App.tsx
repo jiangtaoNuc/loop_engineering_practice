@@ -25,7 +25,7 @@ export function App() {
   const [statusFilter, setStatusFilter] = useState<string>(getInitialStatusFilter);
   const { snapshot, error: harnessError, transition } = useHarness(selectedId);
   const [modalState, setModalState] = useState<HarnessState | null>(null);
-  const { stats, loading: loadingStats, fetchStats } = useCodingStats(selectedId);
+  const { stats, loading: loadingStats, error: statsError, fetchStats } = useCodingStats(selectedId);
 
   useEffect(() => {
     if (issuesData?.issues && !selectedId && issuesData.issues.length > 0) {
@@ -83,7 +83,7 @@ export function App() {
     ? allIssues
     : allIssues.filter((i) => i.status === statusFilter);
 
-  const showBanner = issuesError || harnessError;
+  const activeError = issuesError ?? harnessError;
 
   return (
     <div style={{
@@ -108,10 +108,10 @@ export function App() {
         <span style={{ fontSize: 20 }}>▓▓▓</span>
       </header>
 
-      {showBanner && (
+      {activeError && (
         <Banner
-          message={issuesError ? '⚠ Connection error, retrying...' : '⚠ Data may be stale'}
-          type="warning"
+          message={`⚠ ${activeError.message}`}
+          type={activeError.kind === 'server' || activeError.kind === 'timeout' ? 'error' : 'warning'}
         />
       )}
 
@@ -171,6 +171,7 @@ export function App() {
           state={modalState}
           stats={stats}
           loadingStats={loadingStats}
+          statsError={statsError}
           onClose={() => setModalState(null)}
         />
       )}

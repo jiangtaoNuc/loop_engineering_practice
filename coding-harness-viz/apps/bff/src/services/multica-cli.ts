@@ -6,6 +6,36 @@ const execFileAsync = promisify(execFile);
 
 const MULTICA_TTL_MS = 5_000;
 const MULTICA_STALE_TTL_MS = 30_000;
+const CLI_TIMEOUT_MS = 15_000;
+const ERROR_PREVIEW_CHARS = 200;
+
+export class CliTimeoutError extends Error {
+  constructor(
+    message: string,
+    public readonly command: string,
+  ) {
+    super(message);
+    this.name = 'CliTimeoutError';
+  }
+}
+
+export function isCliTimeoutError(err: unknown): err is CliTimeoutError {
+  return err instanceof CliTimeoutError;
+}
+
+function isExecTimeout(err: unknown): boolean {
+  if (!(err instanceof Error)) return false;
+  if ((err as { killed?: boolean }).killed === true) return true;
+  if (/timed?\s*out/i.test(err.message)) return true;
+  return false;
+}
+
+function truncateError(err: unknown): string {
+  const message = err instanceof Error ? err.message : String(err);
+  return message.length > ERROR_PREVIEW_CHARS
+    ? `${message.slice(0, ERROR_PREVIEW_CHARS)}...`
+    : message;
+}
 
 async function runMultica(args: string[]): Promise<string> {
   const key = `multica:${args.join(' ')}`;
@@ -15,7 +45,7 @@ async function runMultica(args: string[]): Promise<string> {
 
   try {
     const { stdout } = await execFileAsync('multica', args, {
-      timeout: 15_000,
+      timeout: CLI_TIMEOUT_MS,
       env: { ...process.env },
     });
     cache.set(key, stdout, MULTICA_TTL_MS);
@@ -26,14 +56,20 @@ async function runMultica(args: string[]): Promise<string> {
     if (stale) {
       console.warn(
         `[${new Date().toISOString()}] multica ${args.join(' ')} failed, serving stale cache`,
-        err instanceof Error ? err.message : err,
+        truncateError(err),
       );
       return stale;
     }
     console.error(
       `[${new Date().toISOString()}] multica ${args.join(' ')} failed (no stale cache):`,
-      err instanceof Error ? err.message : err,
+      truncateError(err),
     );
+    if (isExecTimeout(err)) {
+      throw new CliTimeoutError(
+        truncateError(err),
+        `multica ${args.join(' ')}`,
+      );
+    }
     throw err;
   }
 }
