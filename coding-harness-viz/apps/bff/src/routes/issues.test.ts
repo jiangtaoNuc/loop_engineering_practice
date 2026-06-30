@@ -157,6 +157,85 @@ describe('GET /api/issues', () => {
     expect(body.issues[0].identifier).toBe('LOO-51');
   });
 
+  it('filters out autopilot-created issues with no PR by default', async () => {
+    const autopilotCreatedIssue = makeIssue({
+      id: 'ap-created',
+      identifier: 'LOO-100',
+      creator_id: SRE_AUTOPILOT_AGENT_ID,
+      creator_type: 'agent',
+      updated_at: '2026-06-01T00:00:00Z',
+    });
+    const normalIssue = makeIssue({
+      id: 'norm-1',
+      identifier: 'LOO-10',
+      updated_at: '2026-05-01T00:00:00Z',
+    });
+
+    vi.mocked(multica.listIssues).mockResolvedValue([autopilotCreatedIssue, normalIssue]);
+    vi.mocked(multica.getMetadata).mockImplementation(async (id: string) =>
+      id === 'norm-1'
+        ? ({ pr_url: 'https://github.com/foo/bar/pull/1' } as MulticaMetadata)
+        : ({} as MulticaMetadata)
+    );
+    vi.mocked(multica.getAllComments).mockResolvedValue([]);
+
+    const app = await buildApp();
+    const res = await app.inject({ method: 'GET', url: '/api/issues' });
+    const body = JSON.parse(res.payload);
+
+    expect(body.issues).toHaveLength(1);
+    expect(body.issues[0].identifier).toBe('LOO-10');
+  });
+
+  it('includes autopilot-created issues when include_autopilot=1', async () => {
+    const autopilotCreatedIssue = makeIssue({
+      id: 'ap-created',
+      identifier: 'LOO-100',
+      creator_id: SRE_AUTOPILOT_AGENT_ID,
+      creator_type: 'agent',
+      updated_at: '2026-06-01T00:00:00Z',
+    });
+    const normalIssue = makeIssue({
+      id: 'norm-1',
+      identifier: 'LOO-10',
+      updated_at: '2026-05-01T00:00:00Z',
+    });
+
+    vi.mocked(multica.listIssues).mockResolvedValue([autopilotCreatedIssue, normalIssue]);
+
+    const app = await buildApp();
+    const res = await app.inject({ method: 'GET', url: '/api/issues?include_autopilot=1' });
+    const body = JSON.parse(res.payload);
+
+    expect(body.issues).toHaveLength(2);
+    const ids = body.issues.map((i: { identifier: string }) => i.identifier);
+    expect(ids).toContain('LOO-100');
+    expect(ids).toContain('LOO-10');
+  });
+
+  it('does not filter autopilot-created issues that have pr_url in metadata', async () => {
+    const autopilotCreatedWithPr = makeIssue({
+      id: 'ap-created-pr',
+      identifier: 'LOO-101',
+      creator_id: SRE_AUTOPILOT_AGENT_ID,
+      creator_type: 'agent',
+      updated_at: '2026-06-01T00:00:00Z',
+    });
+
+    vi.mocked(multica.listIssues).mockResolvedValue([autopilotCreatedWithPr]);
+    vi.mocked(multica.getMetadata).mockResolvedValue({
+      pr_url: 'https://github.com/foo/bar/pull/42',
+    });
+    vi.mocked(multica.getAllComments).mockResolvedValue([]);
+
+    const app = await buildApp();
+    const res = await app.inject({ method: 'GET', url: '/api/issues' });
+    const body = JSON.parse(res.payload);
+
+    expect(body.issues).toHaveLength(1);
+    expect(body.issues[0].identifier).toBe('LOO-101');
+  });
+
   it('caps the result list at ISSUE_LIST_LIMIT (50)', async () => {
     const many = Array.from({ length: 80 }, (_, i) =>
       makeIssue({

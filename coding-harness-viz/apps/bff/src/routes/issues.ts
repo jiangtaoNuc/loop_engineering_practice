@@ -16,10 +16,13 @@ export async function issueRoutes(app: FastifyInstance): Promise<void> {
 
       const issues = await multica.listIssues();
 
-      // Non-autopilot issues are always shown. Autopilot issues are hidden unless
-      // they have a PR URL or the user explicitly opts in via include_autopilot=1.
+      // Non-autopilot issues are always shown. Autopilot issues (by assignee or creator)
+      // are hidden unless they have a PR URL or the user explicitly opts in via include_autopilot=1.
       const filteredPromises = issues.map(async (issue) => {
-        if (issue.assignee_id !== SRE_AUTOPILOT_AGENT_ID) return issue;
+        const isAutopilot =
+          issue.assignee_id === SRE_AUTOPILOT_AGENT_ID ||
+          issue.creator_id === SRE_AUTOPILOT_AGENT_ID;
+        if (!isAutopilot) return issue;
 
         if (includeAutopilot) return issue;
 
