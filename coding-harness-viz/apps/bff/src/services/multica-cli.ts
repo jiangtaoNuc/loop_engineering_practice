@@ -48,7 +48,7 @@ export interface MulticaMetadata {
 }
 
 export async function listIssues(): Promise<MulticaIssue[]> {
-  const raw = await runMultica(['issue', 'list', '--output', 'json']);
+  const raw = await runMultica(['issue', 'list', '--limit', '500', '--output', 'json']);
   const parsed = JSON.parse(raw);
   const issues: MulticaIssue[] = Array.isArray(parsed) ? parsed : parsed.issues ?? [];
   return issues.filter((i) => i.status !== 'cancelled');

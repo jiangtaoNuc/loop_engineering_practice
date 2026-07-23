@@ -10,7 +10,7 @@ export async function issueRoutes(app: FastifyInstance): Promise<void> {
       const issues = await multica.listIssues();
       const summaries: IssueSummary[] = issues
         .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
-        .slice(0, 20)
+        .slice(0, 200)
         .map((i) => ({
           id: i.id,
           identifier: i.identifier,

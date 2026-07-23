@@ -4,6 +4,7 @@ import { IssueTabs } from './components/IssueTabs';
 import { Pipeline } from './components/Pipeline';
 import { Sidebar } from './components/Sidebar';
 import { Banner } from './components/Banner';
+import { NavMenu } from './components/NavMenu';
 
 export function App() {
   const { data: issuesData, error: issuesError } = useIssues();
@@ -37,66 +38,75 @@ export function App() {
     <div style={{
       height: '100vh',
       display: 'flex',
-      flexDirection: 'column',
       overflow: 'hidden',
     }}>
-      <header style={{
-        padding: '16px 24px',
-        borderBottom: '4px solid var(--ink-muted)',
-        fontFamily: 'var(--font-heading)',
-        fontSize: 14,
-        letterSpacing: 2,
-        color: 'var(--accent-cyan)',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 12,
-      }}>
-        <span style={{ fontSize: 20 }}>▓▓▓</span>
-        CODING HARNESS
-        <span style={{ fontSize: 20 }}>▓▓▓</span>
-      </header>
-
-      {showBanner && (
-        <Banner
-          message={issuesError ? '⚠ Connection error, retrying...' : '⚠ Data may be stale'}
-          type="warning"
-        />
-      )}
-
-      <IssueTabs
-        issues={issuesData?.issues ?? []}
-        selectedId={selectedId}
-        onSelect={handleSelect}
-      />
+      <NavMenu />
 
       <div style={{
         flex: 1,
         display: 'flex',
+        flexDirection: 'column',
         overflow: 'hidden',
       }}>
-        <div style={{
-          flex: 1,
-          overflowX: 'auto',
+        <header style={{
+          padding: '12px 24px',
+          borderBottom: '4px solid var(--ink-muted)',
+          fontFamily: 'var(--font-heading)',
+          fontSize: 10,
+          letterSpacing: 2,
+          color: 'var(--accent-cyan)',
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'center',
-          padding: 16,
+          gap: 12,
+          background: 'var(--bg-deep)',
         }}>
-          {snapshot ? (
-            <Pipeline snapshot={snapshot} transition={transition} />
-          ) : (
-            <div style={{
-              fontFamily: 'var(--font-body)',
-              fontSize: 24,
-              color: 'var(--text-dust)',
-              textAlign: 'center',
-            }}>
-              {selectedId ? 'Loading harness data...' : 'Select an issue to view its pipeline'}
-            </div>
-          )}
-        </div>
+          任务运行监控
+        </header>
 
-        {snapshot && <Sidebar snapshot={snapshot} />}
+        {showBanner && (
+          <Banner
+            message={issuesError ? '⚠ Connection error, retrying...' : '⚠ Data may be stale'}
+            type="warning"
+          />
+        )}
+
+        <IssueTabs
+          issues={issuesData?.issues ?? []}
+          selectedId={selectedId}
+          onSelect={handleSelect}
+        />
+
+        <div style={{
+          flex: 1,
+          display: 'flex',
+          overflow: 'hidden',
+        }}>
+          <div style={{
+            flex: 1,
+            overflowX: 'auto',
+            overflowY: 'auto',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 16,
+            background: 'var(--bg-light)',
+          }}>
+            {snapshot ? (
+              <Pipeline snapshot={snapshot} transition={transition} />
+            ) : (
+              <div style={{
+                fontFamily: 'var(--font-body)',
+                fontSize: 24,
+                color: 'var(--ink-muted)',
+                textAlign: 'center',
+              }}>
+                {selectedId ? 'Loading harness data...' : 'Select an issue to view its pipeline'}
+              </div>
+            )}
+          </div>
+
+          {snapshot && <Sidebar snapshot={snapshot} />}
+        </div>
       </div>
     </div>
   );

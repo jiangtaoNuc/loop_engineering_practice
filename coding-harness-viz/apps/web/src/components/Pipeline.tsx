@@ -92,7 +92,7 @@ function NodeCard({ state, currentIndex, stateIndex, stayedMs, isFailed }: NodeC
       <span style={{
         fontFamily: 'var(--font-body)',
         fontSize: 14,
-        color: textColor,
+        color: 'var(--ink-muted)',
         position: 'absolute',
         bottom: -24,
         whiteSpace: 'nowrap',
@@ -102,7 +102,7 @@ function NodeCard({ state, currentIndex, stateIndex, stayedMs, isFailed }: NodeC
       <span style={{
         fontFamily: 'var(--font-body)',
         fontSize: 13,
-        color: 'var(--text-dust)',
+        color: 'var(--ink-muted)',
         position: 'absolute',
         bottom: -42,
         whiteSpace: 'nowrap',
