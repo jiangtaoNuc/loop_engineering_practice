@@ -7,18 +7,20 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "@coding-harness/shared": "workspace:*",
+    "@fastify/cors": "^9.0.0",
     "@octokit/rest": "^20.0.0",
     "dotenv": "^16.4.0",
-    "fastify": "^4.28.0",
-    "@fastify/cors": "^9.0.0"
+    "fastify": "^4.28.0"
   },
   "devDependencies": {
     "@types/node": "^18.19.0",
     "tsx": "^3.14.0",
-    "typescript": "^5.4.0"
+    "typescript": "^5.4.0",
+    "vitest": "^0.34.0"
   }
 }

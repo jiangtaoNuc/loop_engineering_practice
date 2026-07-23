@@ -38,9 +38,6 @@ jobs:
       - name: Build
         run: pnpm build
 
-      - name: Build shared package (for production runtime)
-        run: pnpm --filter @coding-harness/shared exec tsc
-
       - name: Upload deploy artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -98,7 +95,7 @@ jobs:
           # BFF workspace root
           cp deploy-src/package.json staging/bff/
           cp deploy-src/pnpm-lock.yaml staging/bff/
-          cp deploy-src/pnpm-workspace.yaml staging/bff/
+          printf '%s\n' "packages:" "  - 'apps/bff'" "  - 'packages/shared'" > staging/bff/pnpm-workspace.yaml
 
           # BFF app
           cp deploy-src/apps/bff/package.json staging/bff/apps/bff/
@@ -154,6 +151,19 @@ jobs:
             # --- Extract BFF workspace ---
             cd "$DEPLOY_DIR/bff"
             tar xzf "$TMP_DIR/bff.tar.gz"
+
+            # --- Ensure pnpm is available ---
+            if ! command -v pnpm >/dev/null 2>&1; then
+              if command -v corepack >/dev/null 2>&1; then
+                corepack enable
+                corepack prepare pnpm@9 --activate
+              elif command -v npm >/dev/null 2>&1; then
+                npm install -g pnpm
+              else
+                echo "::error::pnpm, corepack and npm are all missing on the server. Please install Node.js/pnpm first."
+                exit 1
+              fi
+            fi
 
             # --- Install production dependencies ---
             cd "$DEPLOY_DIR/bff"

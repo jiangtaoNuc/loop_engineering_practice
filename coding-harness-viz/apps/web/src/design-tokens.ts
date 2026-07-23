@@ -24,5 +24,5 @@ export const spacing = {
   xxl: 48,
 } as const;
 
-export const nodeSize = 64;
+export const nodeSize = 120;
 export const pipeHeight = 8;

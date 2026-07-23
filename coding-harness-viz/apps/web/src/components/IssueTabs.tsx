@@ -5,9 +5,12 @@ interface Props {
   issues: IssueSummary[];
   selectedId: string | null;
   onSelect: (id: string) => void;
+  includeAutopilot: boolean;
+  onToggleAutopilot: () => void;
+  isFiltered: boolean;
 }
 
-export function IssueTabs({ issues, selectedId, onSelect }: Props) {
+export function IssueTabs({ issues, selectedId, onSelect, includeAutopilot, onToggleAutopilot, isFiltered }: Props) {
   const [query, setQuery] = useState('');
 
   const filtered = useMemo(() => {
@@ -29,7 +32,9 @@ export function IssueTabs({ issues, selectedId, onSelect }: Props) {
         color: 'var(--text-dust)',
         textAlign: 'center',
       }}>
-        ▒▒▒ No issues found. Waiting for creation... ▒▒▒
+        {isFiltered
+          ? '▒▒▒ No issues match this filter ▒▒▒'
+          : '▒▒▒ No issues found. Waiting for creation... ▒▒▒'}
       </div>
     );
   }
@@ -101,6 +106,27 @@ export function IssueTabs({ issues, selectedId, onSelect }: Props) {
           );
         })}
       </div>
+      <button
+        onClick={onToggleAutopilot}
+        title={includeAutopilot ? 'Hide autopilot issues' : 'Show autopilot issues'}
+        style={{
+          marginLeft: 'auto',
+          width: 24,
+          height: 24,
+          padding: 0,
+          background: includeAutopilot ? 'var(--accent-cyan)' : 'transparent',
+          border: `2px solid ${includeAutopilot ? 'var(--accent-cyan)' : 'var(--ink-muted)'}`,
+          color: includeAutopilot ? 'var(--bg-deep)' : 'var(--text-dust)',
+          cursor: 'pointer',
+          fontSize: 8,
+          lineHeight: '20px',
+          textAlign: 'center',
+          imageRendering: 'pixelated',
+          flexShrink: 0,
+        }}
+      >
+        🛠
+      </button>
     </div>
   );
 }

@@ -1,30 +1,70 @@
 import { useState, useEffect } from 'react';
 import type { HarnessSnapshot } from '@coding-harness/shared';
-import { HARNESS_STATES, STATE_LABELS, STATE_SHORT } from '@coding-harness/shared';
+import { HARNESS_STATES, STATE_LABELS } from '@coding-harness/shared';
 import type { HarnessState } from '@coding-harness/shared';
 
-function formatDuration(ms: number): string {
-  if (ms <= 0) return '--';
-  const s = Math.floor(ms / 1000);
-  const m = Math.floor(s / 60);
-  const h = Math.floor(m / 60);
-  if (h > 0) return `${h}h ${m % 60}m`;
-  if (m > 0) return `${m}m ${s % 60}s`;
-  return `${s}s`;
+function formatTimestamp(iso: string | null): string {
+  if (!iso) return '--';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '--';
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mi = String(d.getMinutes()).padStart(2, '0');
+  return `${mm}/${dd} ${hh}:${mi}`;
+}
+
+function formatFullTimestamp(iso: string | null): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mi = String(d.getMinutes()).padStart(2, '0');
+  const ss = String(d.getSeconds()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd} ${hh}:${mi}:${ss}`;
+}
+
+function formatTotalDuration(ms: number): string {
+  const totalSeconds = Math.floor(ms / 1000);
+  const s = totalSeconds % 60;
+  const m = Math.floor(totalSeconds / 60) % 60;
+  const h = Math.floor(totalSeconds / 3600);
+  if (h > 0) return `${h}h ${m}m ${String(s).padStart(2, '0')}s`;
+  if (m > 0) return `${m}m ${String(s).padStart(2, '0')}s`;
+  return `${String(s).padStart(2, '0')}s`;
+}
+
+function formatDateTime(iso: string | null): string {
+  if (!iso) return '--';
+  const d = new Date(iso);
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mi = String(d.getMinutes()).padStart(2, '0');
+  const ss = String(d.getSeconds()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd} ${hh}:${mi}:${ss}`;
 }
 
 interface NodeCardProps {
   state: HarnessState;
   currentIndex: number;
   stateIndex: number;
-  stayedMs: number;
+  enteredAt: string | null;
   isFailed: boolean;
+  isCancelled: boolean;
+  onClick: () => void;
 }
 
-function NodeCard({ state, currentIndex, stateIndex, stayedMs, isFailed }: NodeCardProps) {
+function NodeCard({ state, currentIndex, stateIndex, enteredAt, isFailed, isCancelled, onClick, reachedDeployed }: NodeCardProps & { reachedDeployed: boolean }) {
   const [showLightUp, setShowLightUp] = useState(false);
-  const isCompleted = stateIndex < currentIndex;
-  const isCurrent = stateIndex === currentIndex;
+  // Terminal "deployed" node is completed once the pipeline reaches it.
+  // Without this, it falls into the isCurrent branch and stays cyan/blue.
+  const isCompleted = stateIndex < currentIndex || (reachedDeployed && stateIndex === currentIndex);
+  const isCurrent = !isCompleted && stateIndex === currentIndex;
   const isPending = stateIndex > currentIndex;
 
   useEffect(() => {
@@ -38,10 +78,22 @@ function NodeCard({ state, currentIndex, stateIndex, stayedMs, isFailed }: NodeC
   const bg = isCompleted
     ? 'var(--accent-lime)'
     : isCurrent
-    ? 'var(--accent-cyan)'
+    ? isCancelled
+      ? 'var(--ink-muted)'
+      : 'var(--accent-cyan)'
     : 'var(--ink-muted)';
 
   const textColor = isCompleted || isCurrent ? 'var(--bg-deep)' : 'var(--text-dust)';
+
+  const borderColor = isFailed
+    ? 'var(--accent-red)'
+    : isCurrent
+    ? isCancelled
+      ? 'var(--ink-muted)'
+      : 'var(--accent-cyan)'
+    : isCompleted
+    ? 'var(--accent-lime)'
+    : 'var(--ink-muted)';
 
   const animClass = isCurrent
     ? 'anim-heartbeat'
@@ -49,9 +101,18 @@ function NodeCard({ state, currentIndex, stateIndex, stayedMs, isFailed }: NodeC
     ? 'anim-shake'
     : '';
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      onClick();
+    }
+  };
+
   return (
     <div
       className={animClass}
+      onClick={onClick}
+      title={`${STATE_LABELS[state]}: ${formatFullTimestamp(enteredAt)}`}
       style={{
         width: 'var(--node-size)',
         height: 'var(--node-size)',
@@ -61,7 +122,7 @@ function NodeCard({ state, currentIndex, stateIndex, stayedMs, isFailed }: NodeC
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 2,
+        gap: 4,
         position: 'relative',
         animation: isCurrent
           ? 'heartbeat 1.2s steps(8) infinite'
@@ -72,42 +133,35 @@ function NodeCard({ state, currentIndex, stateIndex, stayedMs, isFailed }: NodeC
           : 'none',
         imageRendering: 'pixelated',
         flexShrink: 0,
+        padding: '4px 6px',
+        cursor: 'pointer',
       }}
     >
       <span style={{
         fontFamily: 'var(--font-heading)',
-        fontSize: 8,
+        fontSize: 9,
         color: textColor,
         textAlign: 'center',
-        lineHeight: 1.2,
+        lineHeight: 1.3,
+        wordBreak: 'break-word',
       }}>
-        {STATE_SHORT[state]}
+        {STATE_LABELS[state]}
       </span>
       {isCompleted && (
-        <span style={{ fontSize: 16, color: 'var(--bg-deep)' }}>✓</span>
+        <span style={{ fontSize: 18, color: 'var(--bg-deep)' }}>✓</span>
       )}
       {isCurrent && (
-        <span style={{ fontSize: 12, color: 'var(--bg-deep)' }}>●</span>
+        <span style={{ fontSize: 14, color: 'var(--bg-deep)' }}>●</span>
       )}
       <span style={{
         fontFamily: 'var(--font-body)',
-        fontSize: 14,
-        color: 'var(--ink-muted)',
+        fontSize: 15,
+        color: isPending ? 'var(--ink-muted)' : textColor,
         position: 'absolute',
         bottom: -24,
         whiteSpace: 'nowrap',
       }}>
-        {formatDuration(isCurrent || isCompleted ? stayedMs : 0)}
-      </span>
-      <span style={{
-        fontFamily: 'var(--font-body)',
-        fontSize: 13,
-        color: 'var(--ink-muted)',
-        position: 'absolute',
-        bottom: -42,
-        whiteSpace: 'nowrap',
-      }}>
-        {STATE_LABELS[state]}
+        {formatTimestamp(enteredAt)}
       </span>
     </div>
   );
@@ -140,21 +194,41 @@ function Pipe({ active }: PipeProps) {
 interface Props {
   snapshot: HarnessSnapshot;
   transition: { from: string; to: string } | null;
+  onNodeClick: (state: HarnessState) => void;
 }
 
-export function Pipeline({ snapshot, transition }: Props) {
+export function Pipeline({ snapshot, transition, onNodeClick }: Props) {
   const currentIndex = HARNESS_STATES.indexOf(snapshot.state);
   const isDeployFailed = snapshot.meta.deployFailed;
   const isPrClosed = snapshot.meta.prClosed;
+  const isCancelled = snapshot.meta.issueCancelled;
+  const reachedDeployed = snapshot.state === 'deployed';
 
   return (
     <div style={{ position: 'relative' }}>
       <div style={{
+        position: 'absolute',
+        top: 8,
+        left: '50%',
+        transform: 'translateX(-50%)',
+        padding: '6px 12px',
+        background: 'var(--bg-deep)',
+        border: '2px solid var(--accent-lime)',
+        color: 'var(--accent-lime)',
+        fontFamily: 'var(--font-heading)',
+        fontSize: 8,
+        whiteSpace: 'nowrap',
+        zIndex: 1,
+      }}>
+        END-TO-END: {formatTotalDuration(snapshot.totalDurationMs)}
+      </div>
+
+      <div style={{
         display: 'flex',
-        alignItems: 'center',
-        padding: '48px 24px 60px',
+        alignItems: 'flex-start',
+        padding: '56px 24px 60px',
         justifyContent: 'center',
-        minWidth: 700,
+        minWidth: 900,
       }}>
         {HARNESS_STATES.map((state, idx) => {
           const isFailed =
@@ -162,13 +236,16 @@ export function Pipeline({ snapshot, transition }: Props) {
             (state === 'agent_picked_up' && isPrClosed);
 
           return (
-            <span key={state} style={{ display: 'flex', alignItems: 'center', flex: idx < HARNESS_STATES.length - 1 ? 1 : 'none' }}>
+            <span key={state} style={{ display: 'flex', alignItems: 'flex-start', flex: idx < HARNESS_STATES.length - 1 ? 1 : 'none' }}>
               <NodeCard
                 state={state}
                 currentIndex={currentIndex}
                 stateIndex={idx}
-                stayedMs={snapshot.perNode[state]?.stayedMs ?? 0}
+                enteredAt={snapshot.perNode[state]?.enteredAt ?? null}
                 isFailed={isFailed}
+                isCancelled={isCancelled && idx === currentIndex}
+                onClick={() => onNodeClick(state)}
+                reachedDeployed={reachedDeployed}
               />
               {idx < HARNESS_STATES.length - 1 && (
                 <Pipe active={idx < currentIndex} direction="right" />
