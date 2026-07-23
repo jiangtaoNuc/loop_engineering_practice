@@ -1,5 +1,6 @@
 export const colors = {
   bgDeep: '#1A1C2C',
+  bgLight: '#FFFFFF',
   inkMuted: '#41546B',
   accentCyan: '#41A6F6',
   accentLime: '#A7F070',

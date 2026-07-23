@@ -99,7 +99,7 @@ export interface MulticaMetadata {
   [key: string]: string | number | boolean;
 }
 
-const ISSUE_LIST_LIMIT = 200;
+const ISSUE_LIST_LIMIT = 500;
 
 export async function listIssues(): Promise<MulticaIssue[]> {
   const raw = await runMultica([

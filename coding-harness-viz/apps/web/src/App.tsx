@@ -1,10 +1,11 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useIssues, useHarness, useCodingStats } from './hooks/useHarness';
 import { IssueTabs } from './components/IssueTabs';
 import { StatusFilter } from './components/StatusFilter';
 import { Pipeline } from './components/Pipeline';
 import { Sidebar } from './components/Sidebar';
 import { Banner } from './components/Banner';
+import { NavMenu } from './components/NavMenu';
 import { NodeDetailModal } from './components/NodeDetailModal';
 import type { HarnessState } from '@coding-harness/shared';
 import { STATUS_FILTER_ALL } from '@coding-harness/shared';
@@ -89,80 +90,89 @@ export function App() {
     <div style={{
       height: '100vh',
       display: 'flex',
-      flexDirection: 'column',
       overflow: 'hidden',
     }}>
-      <header style={{
-        padding: '16px 24px',
-        borderBottom: '4px solid var(--ink-muted)',
-        fontFamily: 'var(--font-heading)',
-        fontSize: 14,
-        letterSpacing: 2,
-        color: 'var(--accent-cyan)',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 12,
-      }}>
-        <span style={{ fontSize: 20 }}>▓▓▓</span>
-        CODING HARNESS
-        <span style={{ fontSize: 20 }}>▓▓▓</span>
-      </header>
-
-      {activeError && (
-        <Banner
-          message={`⚠ ${activeError.message}`}
-          type={activeError.kind === 'server' || activeError.kind === 'timeout' ? 'error' : 'warning'}
-        />
-      )}
-
-      <StatusFilter
-        statusFilter={statusFilter}
-        onStatusChange={handleStatusChange}
-        issues={allIssues}
-        filteredCount={filteredIssues.length}
-      />
-
-      <IssueTabs
-        issues={filteredIssues}
-        selectedId={selectedId}
-        onSelect={handleSelect}
-        includeAutopilot={includeAutopilot}
-        onToggleAutopilot={handleToggleAutopilot}
-        isFiltered={statusFilter !== STATUS_FILTER_ALL}
-      />
+      <NavMenu />
 
       <div style={{
         flex: 1,
         display: 'flex',
+        flexDirection: 'column',
         overflow: 'hidden',
       }}>
-        <div style={{
-          flex: 1,
-          overflowX: 'auto',
+        <header style={{
+          padding: '12px 24px',
+          borderBottom: '4px solid var(--ink-muted)',
+          fontFamily: 'var(--font-heading)',
+          fontSize: 10,
+          letterSpacing: 2,
+          color: 'var(--accent-cyan)',
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'center',
-          padding: 16,
+          gap: 12,
+          background: 'var(--bg-deep)',
         }}>
-          {snapshot ? (
-            <Pipeline
-              snapshot={snapshot}
-              transition={transition}
-              onNodeClick={setModalState}
-            />
-          ) : (
-            <div style={{
-              fontFamily: 'var(--font-body)',
-              fontSize: 24,
-              color: 'var(--text-dust)',
-              textAlign: 'center',
-            }}>
-              {selectedId ? 'Loading harness data...' : 'Select an issue to view its pipeline'}
-            </div>
-          )}
-        </div>
+          任务运行监控
+        </header>
 
-        {snapshot && <Sidebar snapshot={snapshot} />}
+        {activeError && (
+          <Banner
+            message={`⚠ ${activeError.message}`}
+            type={activeError.kind === 'server' || activeError.kind === 'timeout' ? 'error' : 'warning'}
+          />
+        )}
+
+        <StatusFilter
+          statusFilter={statusFilter}
+          onStatusChange={handleStatusChange}
+          issues={allIssues}
+          filteredCount={filteredIssues.length}
+        />
+
+        <IssueTabs
+          issues={filteredIssues}
+          selectedId={selectedId}
+          onSelect={handleSelect}
+          includeAutopilot={includeAutopilot}
+          onToggleAutopilot={handleToggleAutopilot}
+          isFiltered={statusFilter !== STATUS_FILTER_ALL}
+        />
+
+        <div style={{
+          flex: 1,
+          display: 'flex',
+          overflow: 'hidden',
+        }}>
+          <div style={{
+            flex: 1,
+            overflowX: 'auto',
+            overflowY: 'auto',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 16,
+            background: 'var(--bg-light)',
+          }}>
+            {snapshot ? (
+              <Pipeline
+                snapshot={snapshot}
+                transition={transition}
+                onNodeClick={setModalState}
+              />
+            ) : (
+              <div style={{
+                fontFamily: 'var(--font-body)',
+                fontSize: 24,
+                color: 'var(--ink-muted)',
+                textAlign: 'center',
+              }}>
+                {selectedId ? 'Loading harness data...' : 'Select an issue to view its pipeline'}
+              </div>
+            )}
+          </div>
+
+          {snapshot && <Sidebar snapshot={snapshot} />}
+        </div>
       </div>
 
       {snapshot && modalState && (

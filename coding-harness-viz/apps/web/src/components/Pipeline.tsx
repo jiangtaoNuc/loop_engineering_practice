@@ -156,7 +156,7 @@ function NodeCard({ state, currentIndex, stateIndex, enteredAt, isFailed, isCanc
       <span style={{
         fontFamily: 'var(--font-body)',
         fontSize: 15,
-        color: isPending ? 'var(--text-dust)' : textColor,
+        color: isPending ? 'var(--ink-muted)' : textColor,
         position: 'absolute',
         bottom: -24,
         whiteSpace: 'nowrap',
