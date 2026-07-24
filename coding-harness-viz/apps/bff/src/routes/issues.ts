@@ -1,16 +1,29 @@
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { IssuesListResponse, IssueSummary } from '@coding-harness/shared';
 import * as multica from '../services/multica-cli.js';
 import * as github from '../services/github.js';
 import { buildSnapshot } from '../services/fsm.js';
 
+const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+
+function withinLast30Days(updatedAt: string): boolean {
+  const updated = new Date(updatedAt).getTime();
+  const cutoff = Date.now() - THIRTY_DAYS_MS;
+  return updated >= cutoff;
+}
+
+interface IssuesQuery {
+  status?: string;
+}
+
 export async function issueRoutes(app: FastifyInstance): Promise<void> {
-  app.get('/api/issues', async (_req, reply) => {
+  app.get('/api/issues', async (req: FastifyRequest<{ Querystring: IssuesQuery }>, reply) => {
     try {
-      const issues = await multica.listIssues();
+      const status = req.query.status;
+      const issues = await multica.listIssues(status);
       const summaries: IssueSummary[] = issues
+        .filter((i) => withinLast30Days(i.updated_at))
         .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
-        .slice(0, 20)
         .map((i) => ({
           id: i.id,
           identifier: i.identifier,

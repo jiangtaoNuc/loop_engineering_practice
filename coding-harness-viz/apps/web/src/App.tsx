@@ -4,9 +4,11 @@ import { IssueTabs } from './components/IssueTabs';
 import { Pipeline } from './components/Pipeline';
 import { Sidebar } from './components/Sidebar';
 import { Banner } from './components/Banner';
+import { StatusFilter } from './components/StatusFilter';
 
 export function App() {
-  const { data: issuesData, error: issuesError } = useIssues();
+  const [statusFilter, setStatusFilter] = useState('');
+  const { data: issuesData, error: issuesError } = useIssues(statusFilter);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const { snapshot, error: harnessError, transition } = useHarness(selectedId);
 
@@ -51,10 +53,10 @@ export function App() {
         alignItems: 'center',
         gap: 12,
       }}>
-        <span style={{ fontSize: 20 }}>▓▓▓</span>
-        CODING HARNESS
-        <span style={{ fontSize: 20 }}>▓▓▓</span>
+        任务状态查询
       </header>
+
+      <StatusFilter value={statusFilter} onChange={setStatusFilter} />
 
       {showBanner && (
         <Banner

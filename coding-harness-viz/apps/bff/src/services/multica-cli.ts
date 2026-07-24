@@ -47,11 +47,14 @@ export interface MulticaMetadata {
   [key: string]: string | number | boolean;
 }
 
-export async function listIssues(): Promise<MulticaIssue[]> {
-  const raw = await runMultica(['issue', 'list', '--output', 'json']);
+export async function listIssues(status?: string): Promise<MulticaIssue[]> {
+  const args = ['issue', 'list', '--limit', '200', '--output', 'json'];
+  if (status) args.push('--status', status);
+
+  const raw = await runMultica(args);
   const parsed = JSON.parse(raw);
   const issues: MulticaIssue[] = Array.isArray(parsed) ? parsed : parsed.issues ?? [];
-  return issues.filter((i) => i.status !== 'cancelled');
+  return issues;
 }
 
 export async function getIssue(id: string): Promise<MulticaIssue> {
