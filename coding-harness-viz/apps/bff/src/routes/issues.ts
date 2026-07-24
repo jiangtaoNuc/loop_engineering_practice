@@ -9,13 +9,22 @@ import { extractCodingStats } from '../services/coding-stats.js';
 import { isMockMode, mockGetHarness } from '../services/mock.js';
 import { SRE_AUTOPILOT_AGENT_ID, ISSUE_LIST_LIMIT } from '../constants.js';
 
+const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+
+function withinLast30Days(updatedAt: string): boolean {
+  const updated = new Date(updatedAt).getTime();
+  const cutoff = Date.now() - THIRTY_DAYS_MS;
+  return updated >= cutoff;
+}
+
 export async function issueRoutes(app: FastifyInstance): Promise<void> {
   app.get('/api/issues', async (req, reply) => {
     try {
-      const query = req.query as { include_autopilot?: string };
+      const query = req.query as { include_autopilot?: string; status?: string };
       const includeAutopilot = query.include_autopilot === '1';
+      const statusFilter = query.status;
 
-      const issues = await multica.listIssues();
+      const issues = await multica.listIssues(statusFilter);
 
       // Non-autopilot issues are always shown. Autopilot issues are hidden unless
       // they have a PR URL or the user explicitly opts in via include_autopilot=1.
@@ -34,9 +43,10 @@ export async function issueRoutes(app: FastifyInstance): Promise<void> {
         return null;
       });
       const results = await Promise.all(filteredPromises);
-      let filtered = results.filter((i): i is multica.MulticaIssue => i !== null);
+      const filtered = results.filter((i): i is multica.MulticaIssue => i !== null);
 
       const summaries: IssueSummary[] = filtered
+        .filter((i) => withinLast30Days(i.updated_at))
         .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
         .slice(0, ISSUE_LIST_LIMIT)
         .map((i) => ({
