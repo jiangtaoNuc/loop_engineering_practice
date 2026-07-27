@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import type { IssuesListResponse, IssueSummary } from '@coding-harness/shared';
+import type { IssuesListResponse, IssueSummary, BatchDeleteResponse } from '@coding-harness/shared';
 import * as multica from '../services/multica-cli.js';
 import * as github from '../services/github.js';
 import { buildSnapshot } from '../services/fsm.js';
@@ -31,6 +31,38 @@ export async function issueRoutes(app: FastifyInstance): Promise<void> {
     } catch (err) {
       console.error('GET /api/issues failed:', err);
       return reply.code(200).send({ issues: [], etag: 'empty', degraded: true });
+    }
+  });
+
+  app.delete('/api/issues/batch', async (req, reply) => {
+    const { ids } = (req.body as { ids?: string[] }) ?? {};
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return reply.code(400).send({ error: 'ids must be a non-empty array' });
+    }
+    if (ids.length > 50) {
+      return reply.code(400).send({ error: 'maximum 50 issues per batch' });
+    }
+
+    try {
+      const results = await multica.deleteIssues(ids);
+      const deleted = results.filter((r) => r.success).length;
+      const failed = results.filter((r) => !r.success).length;
+      const body: BatchDeleteResponse = { results, deleted, failed };
+      return reply.code(failed > 0 && deleted === 0 ? 500 : 200).send(body);
+    } catch (err) {
+      console.error('DELETE /api/issues/batch failed:', err);
+      return reply.code(500).send({ error: 'batch delete failed' });
+    }
+  });
+
+  app.delete('/api/issues/:id', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    try {
+      await multica.deleteIssue(id);
+      return reply.code(204).send();
+    } catch (err) {
+      console.error(`DELETE /api/issues/${id} failed:`, err);
+      return reply.code(500).send({ error: 'delete failed' });
     }
   });
 

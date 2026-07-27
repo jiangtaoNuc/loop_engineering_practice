@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useIssues, useHarness } from './hooks/useHarness';
 import { IssueTabs } from './components/IssueTabs';
 import { Pipeline } from './components/Pipeline';
@@ -6,8 +6,9 @@ import { Sidebar } from './components/Sidebar';
 import { Banner } from './components/Banner';
 
 export function App() {
-  const { data: issuesData, error: issuesError } = useIssues();
+  const { data: issuesData, error: issuesError, refetch: refetchIssues } = useIssues();
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
   const { snapshot, error: harnessError, transition } = useHarness(selectedId);
 
   useEffect(() => {
@@ -21,6 +22,15 @@ export function App() {
     }
   }, [issuesData, selectedId]);
 
+  useEffect(() => {
+    if (!issuesData?.issues) return;
+    const validIds = new Set(issuesData.issues.map((i) => i.id));
+    setCheckedIds((prev) => {
+      const next = new Set([...prev].filter((id) => validIds.has(id)));
+      return next.size !== prev.size ? next : prev;
+    });
+  }, [issuesData]);
+
   const handleSelect = (id: string) => {
     setSelectedId(id);
     const issue = issuesData?.issues.find((i) => i.id === id);
@@ -30,6 +40,64 @@ export function App() {
       window.history.replaceState(null, '', url.toString());
     }
   };
+
+  const handleToggleCheck = useCallback((id: string) => {
+    setCheckedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const handleToggleAll = useCallback(() => {
+    if (!issuesData?.issues) return;
+    setCheckedIds((prev) => {
+      if (prev.size === issuesData.issues.length) return new Set();
+      return new Set(issuesData.issues.map((i) => i.id));
+    });
+  }, [issuesData]);
+
+  const handleDeleteOne = useCallback(
+    async (id: string) => {
+      try {
+        const res = await fetch(`/api/issues/${id}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      } catch {
+        return;
+      }
+      if (selectedId === id) {
+        setSelectedId(null);
+      }
+      setCheckedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+      refetchIssues();
+    },
+    [selectedId, refetchIssues],
+  );
+
+  const handleDeleteBatch = useCallback(async () => {
+    const ids = [...checkedIds];
+    if (ids.length === 0) return;
+    try {
+      const res = await fetch('/api/issues/batch', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    } catch {
+      return;
+    }
+    if (selectedId && checkedIds.has(selectedId)) {
+      setSelectedId(null);
+    }
+    setCheckedIds(new Set());
+    refetchIssues();
+  }, [checkedIds, selectedId, refetchIssues]);
 
   const showBanner = issuesError || harnessError;
 
@@ -51,9 +119,9 @@ export function App() {
         alignItems: 'center',
         gap: 12,
       }}>
-        <span style={{ fontSize: 20 }}>▓▓▓</span>
+        <span style={{ fontSize: 20 }}>{'▓▓▓'}</span>
         CODING HARNESS
-        <span style={{ fontSize: 20 }}>▓▓▓</span>
+        <span style={{ fontSize: 20 }}>{'▓▓▓'}</span>
       </header>
 
       {showBanner && (
@@ -67,6 +135,11 @@ export function App() {
         issues={issuesData?.issues ?? []}
         selectedId={selectedId}
         onSelect={handleSelect}
+        checkedIds={checkedIds}
+        onToggleCheck={handleToggleCheck}
+        onToggleAll={handleToggleAll}
+        onDeleteOne={handleDeleteOne}
+        onDeleteBatch={handleDeleteBatch}
       />
 
       <div style={{

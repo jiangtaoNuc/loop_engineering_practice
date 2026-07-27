@@ -6,6 +6,19 @@ const execFileAsync = promisify(execFile);
 
 const MULTICA_TTL_MS = 5_000;
 
+async function runMulticaNoCache(args: string[]): Promise<string> {
+  try {
+    const { stdout } = await execFileAsync('multica', args, {
+      timeout: 15_000,
+      env: { ...process.env },
+    });
+    return stdout;
+  } catch (err) {
+    console.error(`multica ${args.join(' ')} failed:`, err);
+    throw err;
+  }
+}
+
 async function runMultica(args: string[]): Promise<string> {
   const key = `multica:${args.join(' ')}`;
   const cached = cache.get<string>(key);
@@ -84,6 +97,34 @@ export async function getAgent(agentId: string): Promise<{ name: string } | null
   } catch {
     return null;
   }
+}
+
+export async function deleteIssue(id: string): Promise<void> {
+  await runMulticaNoCache(['issue', 'status', id, 'cancelled']);
+  cache.invalidatePrefix('multica:');
+}
+
+export interface DeleteResult {
+  id: string;
+  success: boolean;
+  error?: string;
+}
+
+export async function deleteIssues(ids: string[]): Promise<DeleteResult[]> {
+  const results: DeleteResult[] = [];
+  for (const id of ids) {
+    try {
+      await runMulticaNoCache(['issue', 'status', id, 'cancelled']);
+      results.push({ id, success: true });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      results.push({ id, success: false, error: msg });
+    }
+  }
+  if (results.some((r) => r.success)) {
+    cache.invalidatePrefix('multica:');
+  }
+  return results;
 }
 
 export async function checkCli(): Promise<boolean> {

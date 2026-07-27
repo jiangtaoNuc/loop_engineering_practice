@@ -31,13 +31,18 @@ export function useIssues() {
     }
   }, []);
 
+  const refetch = useCallback(() => {
+    etagRef.current = null;
+    fetchIssues();
+  }, [fetchIssues]);
+
   useEffect(() => {
     fetchIssues();
     const interval = setInterval(fetchIssues, POLL_BASE);
     return () => clearInterval(interval);
   }, [fetchIssues]);
 
-  return { data, error };
+  return { data, error, refetch };
 }
 
 export function useHarness(issueId: string | null) {
