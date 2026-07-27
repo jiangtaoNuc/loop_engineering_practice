@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   useIssues,
   useHarness,
@@ -37,6 +37,10 @@ export function App() {
   const [statusFilter, setStatusFilter] = useState<string>(getInitialStatusFilter);
   const [viewMode, setViewMode] = useState<ViewMode>('pipeline');
   const [selectedStatuses, setSelectedStatuses] = useState<MulticaStatus[]>([...MULTICA_STATUSES]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showNewForm, setShowNewForm] = useState(false);
+  const [newTitle, setNewTitle] = useState('');
+  const [creating, setCreating] = useState(false);
   const { snapshot, error: harnessError, transition } = useHarness(selectedId);
   const [modalState, setModalState] = useState<HarnessState | null>(null);
   const { stats, loading: loadingStats, error: statsError, fetchStats } = useCodingStats(selectedId);
@@ -97,9 +101,48 @@ export function App() {
   };
 
   const allIssues = issuesData?.issues ?? [];
-  const filteredIssues = statusFilter === STATUS_FILTER_ALL
+  const statusFiltered = statusFilter === STATUS_FILTER_ALL
     ? allIssues
     : allIssues.filter((i) => i.status === statusFilter);
+
+  const filteredIssues = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return statusFiltered;
+    return statusFiltered.filter(
+      (i) =>
+        i.identifier.toLowerCase().includes(q) ||
+        i.title.toLowerCase().includes(q),
+    );
+  }, [statusFiltered, searchQuery]);
+
+  useEffect(() => {
+    if (selectedId && filteredIssues.length > 0) {
+      const stillVisible = filteredIssues.some((i) => i.id === selectedId);
+      if (!stillVisible) {
+        setSelectedId(filteredIssues[0].id);
+        setModalState(null);
+      }
+    }
+  }, [filteredIssues, selectedId]);
+
+  const handleCreateIssue = async () => {
+    const title = newTitle.trim();
+    if (!title) return;
+    setCreating(true);
+    try {
+      const res = await fetch('/api/issues', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title }),
+      });
+      if (res.ok) {
+        setNewTitle('');
+        setShowNewForm(false);
+      }
+    } finally {
+      setCreating(false);
+    }
+  };
 
   const activeError = issuesError ?? harnessError;
   const graphViewDegraded = viewMode === 'graph' && (graphError || timelineError);
@@ -191,13 +234,109 @@ export function App() {
               filteredCount={filteredIssues.length}
             />
 
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '6px 16px',
+              borderBottom: '2px solid var(--ink-muted)',
+            }}>
+              <input
+                type="text"
+                placeholder="Search issues..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                style={{
+                  flex: 1,
+                  fontFamily: 'var(--font-body)',
+                  fontSize: 20,
+                  padding: '4px 10px',
+                  background: 'var(--bg-deep)',
+                  color: 'var(--text-bone)',
+                  border: '2px solid var(--ink-muted)',
+                  outline: 'none',
+                }}
+              />
+              {!showNewForm ? (
+                <button
+                  onClick={() => setShowNewForm(true)}
+                  style={{
+                    fontFamily: 'var(--font-heading)',
+                    fontSize: 8,
+                    padding: '6px 10px',
+                    background: 'var(--accent-cyan)',
+                    color: 'var(--bg-deep)',
+                    border: '2px solid var(--accent-cyan)',
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  + NEW
+                </button>
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <input
+                    type="text"
+                    placeholder="Issue title"
+                    value={newTitle}
+                    onChange={(e) => setNewTitle(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleCreateIssue();
+                      if (e.key === 'Escape') { setShowNewForm(false); setNewTitle(''); }
+                    }}
+                    style={{
+                      fontFamily: 'var(--font-body)',
+                      fontSize: 20,
+                      padding: '4px 10px',
+                      width: 200,
+                      background: 'var(--bg-deep)',
+                      color: 'var(--text-bone)',
+                      border: '2px solid var(--ink-muted)',
+                      outline: 'none',
+                    }}
+                    autoFocus
+                  />
+                  <button
+                    onClick={handleCreateIssue}
+                    disabled={creating || !newTitle.trim()}
+                    style={{
+                      fontFamily: 'var(--font-heading)',
+                      fontSize: 8,
+                      padding: '6px 10px',
+                      background: 'var(--accent-cyan)',
+                      color: 'var(--bg-deep)',
+                      border: '2px solid var(--accent-cyan)',
+                      cursor: 'pointer',
+                      opacity: creating || !newTitle.trim() ? 0.5 : 1,
+                    }}
+                  >
+                    {creating ? '...' : 'OK'}
+                  </button>
+                  <button
+                    onClick={() => { setShowNewForm(false); setNewTitle(''); }}
+                    style={{
+                      fontFamily: 'var(--font-heading)',
+                      fontSize: 8,
+                      padding: '6px 10px',
+                      background: 'var(--ink-muted)',
+                      color: 'var(--text-bone)',
+                      border: '2px solid var(--ink-muted)',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    X
+                  </button>
+                </div>
+              )}
+            </div>
+
             <IssueTabs
               issues={filteredIssues}
               selectedId={selectedId}
               onSelect={handleSelect}
               includeAutopilot={includeAutopilot}
               onToggleAutopilot={handleToggleAutopilot}
-              isFiltered={statusFilter !== STATUS_FILTER_ALL}
+              isFiltered={statusFilter !== STATUS_FILTER_ALL || searchQuery.trim() !== ''}
             />
 
             <div style={{

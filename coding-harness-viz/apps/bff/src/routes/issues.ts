@@ -172,6 +172,27 @@ export async function issueRoutes(app: FastifyInstance): Promise<void> {
     }
   });
 
+  app.post('/api/issues', async (req, reply) => {
+    const { title } = (req.body as { title?: string }) ?? {};
+    if (!title || typeof title !== 'string' || !title.trim()) {
+      return reply.code(400).send({ error: 'title is required' });
+    }
+    try {
+      const issue = await multica.createIssue(title.trim());
+      const summary: IssueSummary = {
+        id: issue.id,
+        identifier: issue.identifier,
+        title: issue.title,
+        status: issue.status,
+        updatedAt: issue.updated_at,
+      };
+      return reply.code(201).send(summary);
+    } catch (err) {
+      console.error('POST /api/issues failed:', err);
+      return reply.code(500).send({ error: 'failed to create issue' });
+    }
+  });
+
   app.get('/api/issues/:id/harness', async (req, reply) => {
     const { id } = req.params as { id: string };
 
