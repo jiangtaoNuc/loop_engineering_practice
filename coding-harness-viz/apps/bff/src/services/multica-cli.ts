@@ -158,6 +158,13 @@ export async function getAgent(agentId: string): Promise<{ name: string } | null
   }
 }
 
+export async function createIssue(title: string): Promise<MulticaIssue> {
+  const raw = await runMultica([
+    'issue', 'create', '--title', title, '--output', 'json',
+  ]);
+  return JSON.parse(raw);
+}
+
 export async function checkCli(): Promise<boolean> {
   try {
     await execFileAsync('multica', ['--version'], { timeout: 5_000 });
