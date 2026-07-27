@@ -33,6 +33,9 @@ export interface MulticaIssue {
   assignee_type: string | null;
   created_at: string;
   updated_at: string;
+  parent_issue_id: string | null;
+  priority: string | null;
+  number: number;
 }
 
 export interface MulticaComment {
@@ -47,11 +50,72 @@ export interface MulticaMetadata {
   [key: string]: string | number | boolean;
 }
 
+export interface MulticaRun {
+  id: string;
+  agent_id: string | null;
+  attempt: number;
+  completed_at: string | null;
+  created_at: string;
+  dispatched_at: string | null;
+  error: string | null;
+  issue_id: string;
+  kind: string;
+  max_attempts: number;
+  priority: number;
+  result: string | null;
+  runtime_id: string;
+  started_at: string | null;
+  status: string;
+  workspace_id: string;
+}
+
+interface IssueListPayload {
+  issues: MulticaIssue[];
+  has_more?: boolean;
+  limit?: number;
+  offset?: number;
+  total?: number;
+}
+
+const ISSUE_LIST_PAGE_LIMIT = 200;
+const ISSUE_LOOKBACK_DAYS = 30;
+
 export async function listIssues(): Promise<MulticaIssue[]> {
-  const raw = await runMultica(['issue', 'list', '--output', 'json']);
-  const parsed = JSON.parse(raw);
-  const issues: MulticaIssue[] = Array.isArray(parsed) ? parsed : parsed.issues ?? [];
-  return issues.filter((i) => i.status !== 'cancelled');
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - ISSUE_LOOKBACK_DAYS);
+  const cutoffMs = cutoff.getTime();
+
+  const all: MulticaIssue[] = [];
+  let offset = 0;
+
+  for (let page = 0; page < 20; page++) {
+    const raw = await runMultica([
+      'issue', 'list',
+      '--output', 'json',
+      '--limit', String(ISSUE_LIST_PAGE_LIMIT),
+      '--offset', String(offset),
+    ]);
+    const parsed: IssueListPayload = JSON.parse(raw);
+    const pageIssues = Array.isArray(parsed) ? parsed : parsed.issues ?? [];
+
+    if (pageIssues.length === 0) break;
+
+    for (const issue of pageIssues) {
+      const updatedMs = new Date(issue.updated_at).getTime();
+      if (updatedMs >= cutoffMs) {
+        all.push(issue);
+      }
+    }
+
+    const oldestInPage = new Date(pageIssues[pageIssues.length - 1].updated_at).getTime();
+    const hasMore = !Array.isArray(parsed) ? (parsed.has_more ?? false) : false;
+
+    if (!hasMore || oldestInPage < cutoffMs) break;
+
+    offset += ISSUE_LIST_PAGE_LIMIT;
+  }
+
+  return all;
 }
 
 export async function getIssue(id: string): Promise<MulticaIssue> {
@@ -74,6 +138,15 @@ export async function getMetadata(id: string): Promise<MulticaMetadata> {
     return JSON.parse(raw);
   } catch {
     return {};
+  }
+}
+
+export async function getIssueRuns(id: string): Promise<MulticaRun[]> {
+  try {
+    const raw = await runMultica(['issue', 'runs', id, '--output', 'json']);
+    return JSON.parse(raw);
+  } catch {
+    return [];
   }
 }
 
