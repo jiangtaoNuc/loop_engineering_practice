@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   useIssues,
   useHarness,
@@ -32,7 +32,7 @@ export function App() {
   const [includeAutopilot, setIncludeAutopilot] = useState<boolean>(
     () => localStorage.getItem(LS_KEY) === '1'
   );
-  const { data: issuesData, error: issuesError } = useIssues(includeAutopilot);
+  const { data: issuesData, error: issuesError, refetch: refetchIssues } = useIssues(includeAutopilot);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>(getInitialStatusFilter);
   const [viewMode, setViewMode] = useState<ViewMode>('pipeline');
@@ -41,6 +41,7 @@ export function App() {
   const [showNewForm, setShowNewForm] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [creating, setCreating] = useState(false);
+  const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
   const { snapshot, error: harnessError, transition } = useHarness(selectedId);
   const [modalState, setModalState] = useState<HarnessState | null>(null);
   const { stats, loading: loadingStats, error: statsError, fetchStats } = useCodingStats(selectedId);
@@ -69,6 +70,15 @@ export function App() {
   useEffect(() => {
     setModalState(null);
   }, [selectedId]);
+
+  useEffect(() => {
+    if (!issuesData?.issues) return;
+    const validIds = new Set(issuesData.issues.map((i) => i.id));
+    setCheckedIds((prev) => {
+      const next = new Set([...prev].filter((id) => validIds.has(id)));
+      return next.size !== prev.size ? next : prev;
+    });
+  }, [issuesData]);
 
   const handleSelect = (id: string) => {
     setSelectedId(id);
@@ -143,6 +153,63 @@ export function App() {
       setCreating(false);
     }
   };
+
+  const handleToggleCheck = useCallback((id: string) => {
+    setCheckedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const handleToggleAll = useCallback(() => {
+    setCheckedIds((prev) => {
+      if (prev.size === filteredIssues.length) return new Set();
+      return new Set(filteredIssues.map((i) => i.id));
+    });
+  }, [filteredIssues]);
+
+  const handleDeleteOne = useCallback(
+    async (id: string) => {
+      try {
+        const res = await fetch(`/api/issues/${id}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      } catch {
+        return;
+      }
+      if (selectedId === id) {
+        setSelectedId(null);
+      }
+      setCheckedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+      refetchIssues();
+    },
+    [selectedId, refetchIssues],
+  );
+
+  const handleDeleteBatch = useCallback(async () => {
+    const ids = [...checkedIds];
+    if (ids.length === 0) return;
+    try {
+      const res = await fetch('/api/issues/batch', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    } catch {
+      return;
+    }
+    if (selectedId && checkedIds.has(selectedId)) {
+      setSelectedId(null);
+    }
+    setCheckedIds(new Set());
+    refetchIssues();
+  }, [checkedIds, selectedId, refetchIssues]);
 
   const activeError = issuesError ?? harnessError;
   const graphViewDegraded = viewMode === 'graph' && (graphError || timelineError);
@@ -337,6 +404,11 @@ export function App() {
               includeAutopilot={includeAutopilot}
               onToggleAutopilot={handleToggleAutopilot}
               isFiltered={statusFilter !== STATUS_FILTER_ALL || searchQuery.trim() !== ''}
+              checkedIds={checkedIds}
+              onToggleCheck={handleToggleCheck}
+              onToggleAll={handleToggleAll}
+              onDeleteOne={handleDeleteOne}
+              onDeleteBatch={handleDeleteBatch}
             />
 
             <div style={{

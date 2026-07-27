@@ -19,6 +19,14 @@ export class MemoryCache {
   set<T>(key: string, value: T, ttlMs: number): void {
     this.store.set(key, { value, expiresAt: Date.now() + ttlMs });
   }
+
+  invalidatePrefix(prefix: string): void {
+    for (const key of this.store.keys()) {
+      if (key.startsWith(prefix)) {
+        this.store.delete(key);
+      }
+    }
+  }
 }
 
 export const cache = new MemoryCache();
