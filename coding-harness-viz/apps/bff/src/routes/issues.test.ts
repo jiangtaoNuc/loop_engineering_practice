@@ -36,6 +36,9 @@ function makeIssue(overrides: Partial<MulticaIssue> & { id: string; identifier: 
     creator_type: null,
     created_at: '2026-01-01T00:00:00Z',
     updated_at: '2026-01-01T00:00:00Z',
+    parent_issue_id: null,
+    priority: null,
+    number: 0,
     ...overrides,
   };
 }

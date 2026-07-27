@@ -11,6 +11,14 @@
   --font-body: 'VT323', monospace;
   --node-size: 120px;
   --pipe-height: 8px;
+
+  --status-todo: #F6A641;
+  --status-in_progress: #41A6F6;
+  --status-in_review: #B47AEA;
+  --status-done: #A7F070;
+  --status-blocked: #E43B44;
+  --status-backlog: #7D8FA3;
+  --status-cancelled: #5A5A5A;
 }
 
 *, *::before, *::after {
