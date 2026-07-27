@@ -1,5 +1,14 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import type { HarnessSnapshot, IssuesListResponse, CodingStats, CodingStatsResponse } from '@coding-harness/shared';
+import type {
+  HarnessSnapshot,
+  IssuesListResponse,
+  IssuesGraphResponse,
+  StatusTimelineResponse,
+  MulticaStatus,
+  CodingStats,
+  CodingStatsResponse,
+} from '@coding-harness/shared';
+import { MULTICA_STATUSES } from '@coding-harness/shared';
 
 const POLL_BASE = 7000;
 const FETCH_TIMEOUT_MS = 10000;
@@ -160,6 +169,72 @@ export function useIssues(includeAutopilot: boolean = false) {
   }, [fetchIssues]);
 
   return { data, error, refetch };
+}
+
+export function useIssueGraph(statuses: MulticaStatus[]) {
+  const [data, setData] = useState<IssuesGraphResponse | null>(null);
+  const [error, setError] = useState(false);
+  const etagRef = useRef<string | null>(null);
+
+  const fetchGraph = useCallback(async () => {
+    try {
+      const params = new URLSearchParams();
+      if (statuses.length > 0 && statuses.length < MULTICA_STATUSES.length) {
+        params.set('status', statuses.join(','));
+      }
+
+      const headers: Record<string, string> = {};
+      if (etagRef.current) headers['If-None-Match'] = `"${etagRef.current}"`;
+
+      const res = await fetch(`/api/issues/graph?${params.toString()}`, { headers });
+      if (res.status === 304) return;
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+      const body: IssuesGraphResponse = await res.json();
+      etagRef.current = body.etag;
+      setData(body);
+      setError(false);
+    } catch {
+      setError(true);
+    }
+  }, [statuses]);
+
+  useEffect(() => {
+    etagRef.current = null;
+    fetchGraph();
+    const interval = setInterval(fetchGraph, POLL_BASE);
+    return () => clearInterval(interval);
+  }, [fetchGraph]);
+
+  return { data, error };
+}
+
+export function useStatusTimeline(issueId: string | null) {
+  const [data, setData] = useState<StatusTimelineResponse | null>(null);
+  const [error, setError] = useState(false);
+
+  const fetchTimeline = useCallback(async () => {
+    if (!issueId) return;
+    try {
+      const res = await fetch(`/api/issues/${issueId}/timeline`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+      const body: StatusTimelineResponse = await res.json();
+      setData(body);
+      setError(false);
+    } catch {
+      setError(true);
+    }
+  }, [issueId]);
+
+  useEffect(() => {
+    setData(null);
+    fetchTimeline();
+    const interval = setInterval(fetchTimeline, POLL_BASE);
+    return () => clearInterval(interval);
+  }, [fetchTimeline]);
+
+  return { data, error };
 }
 
 export function useHarness(issueId: string | null) {

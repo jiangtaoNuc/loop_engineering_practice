@@ -155,3 +155,66 @@ export interface BatchDeleteResponse {
   deleted: number;
   failed: number;
 }
+
+export type MulticaStatus =
+  | 'todo'
+  | 'in_progress'
+  | 'in_review'
+  | 'done'
+  | 'blocked'
+  | 'backlog'
+  | 'cancelled';
+
+export const MULTICA_STATUSES: MulticaStatus[] = [
+  'todo',
+  'in_progress',
+  'in_review',
+  'done',
+  'blocked',
+  'backlog',
+  'cancelled',
+];
+
+export const STATUS_LABELS: Record<MulticaStatus, string> = {
+  todo: 'Todo',
+  in_progress: 'In Progress',
+  in_review: 'In Review',
+  done: 'Done',
+  blocked: 'Blocked',
+  backlog: 'Backlog',
+  cancelled: 'Cancelled',
+};
+
+export interface IssueNode {
+  id: string;
+  identifier: string;
+  title: string;
+  status: MulticaStatus;
+  parentIssueId: string | null;
+}
+
+export interface IssueEdge {
+  id: string;
+  source: string;
+  target: string;
+}
+
+export interface IssuesGraphResponse {
+  nodes: IssueNode[];
+  edges: IssueEdge[];
+  etag: string;
+}
+
+export interface StatusTimelineEntry {
+  status: MulticaStatus;
+  startedAt: string;
+  endedAt: string | null;
+  inferred: boolean;
+}
+
+export interface StatusTimelineResponse {
+  issueId: string;
+  identifier: string;
+  title: string;
+  timeline: StatusTimelineEntry[];
+}
