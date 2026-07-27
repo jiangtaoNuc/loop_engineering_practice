@@ -1,5 +1,6 @@
 export const colors = {
   bgDeep: '#1A1C2C',
+  bgLight: '#FFFFFF',
   inkMuted: '#41546B',
   accentCyan: '#41A6F6',
   accentLime: '#A7F070',
@@ -23,5 +24,5 @@ export const spacing = {
   xxl: 48,
 } as const;
 
-export const nodeSize = 64;
+export const nodeSize = 120;
 export const pipeHeight = 8;

@@ -4,6 +4,7 @@ export type HarnessState =
   | 'coding'
   | 'pr_opened'
   | 'pr_merged'
+  | 'ci'
   | 'deployed';
 
 export const HARNESS_STATES: HarnessState[] = [
@@ -12,6 +13,7 @@ export const HARNESS_STATES: HarnessState[] = [
   'coding',
   'pr_opened',
   'pr_merged',
+  'ci',
   'deployed',
 ];
 
@@ -21,16 +23,8 @@ export const STATE_LABELS: Record<HarnessState, string> = {
   coding: 'Coding',
   pr_opened: 'PR Opened',
   pr_merged: 'PR Merged',
+  ci: 'CI',
   deployed: 'Deployed',
-};
-
-export const STATE_SHORT: Record<HarnessState, string> = {
-  issue_created: 'S1',
-  agent_picked_up: 'S2',
-  coding: 'S3',
-  pr_opened: 'S4',
-  pr_merged: 'S5',
-  deployed: 'S6',
 };
 
 export interface NodeStatus {
@@ -38,6 +32,7 @@ export interface NodeStatus {
   enteredAt: string | null;
   leftAt: string | null;
   stayedMs: number;
+  durationSec?: number;
 }
 
 export interface HarnessMeta {
@@ -50,6 +45,14 @@ export interface HarnessMeta {
   prMerged: boolean;
   prClosed: boolean;
   deployFailed: boolean;
+  issueCancelled: boolean;
+  prTitle: string | null;
+  prMergedAt: string | null;
+  prMergeSha: string | null;
+  prReviewDecision: 'APPROVED' | 'CHANGES_REQUESTED' | 'COMMENTED' | null;
+  deployConclusion: string | null;
+  deployStartedAt: string | null;
+  deployCompletedAt: string | null;
 }
 
 export interface HarnessSnapshot {
@@ -58,11 +61,32 @@ export interface HarnessSnapshot {
   title: string;
   state: HarnessState;
   enteredAt: string | null;
-  stayedMs: number;
+  totalDurationMs: number;
+  creatorType: string | null;
+  creatorId: string | null;
   perNode: Record<HarnessState, NodeStatus>;
   meta: HarnessMeta;
+  agentPickedUpAt: string | null;
+  agentPickedUpSource: 'log' | 'fallback';
   degraded: boolean;
   etag: string;
+}
+
+export interface CodingStats {
+  available: boolean;
+  startedAt: string | null;
+  endedAt: string | null;
+  durationSec: number | null;
+  toolCalls: number | null;
+  events: number | null;
+  turns: number | null;
+  sampleCommentId?: string;
+  sampleAt?: string;
+}
+
+export interface CodingStatsResponse {
+  issueId: string;
+  stats: CodingStats;
 }
 
 export interface IssueSummary {
@@ -73,9 +97,45 @@ export interface IssueSummary {
   updatedAt: string;
 }
 
+export type IssueStatus =
+  | 'todo'
+  | 'in_progress'
+  | 'in_review'
+  | 'done'
+  | 'blocked'
+  | 'backlog'
+  | 'cancelled';
+
+export const ISSUE_STATUSES: IssueStatus[] = [
+  'todo',
+  'in_progress',
+  'in_review',
+  'done',
+  'blocked',
+  'backlog',
+  'cancelled',
+];
+
+export const ISSUE_STATUS_LABELS: Record<IssueStatus, string> = {
+  todo: 'TODO',
+  in_progress: 'IN PROGRESS',
+  in_review: 'IN REVIEW',
+  done: 'DONE',
+  blocked: 'BLOCKED',
+  backlog: 'BACKLOG',
+  cancelled: 'CANCELLED',
+};
+
+export const STATUS_FILTER_ALL = 'all';
+
+export interface IssueListQuery {
+  includeAutopilot?: boolean;
+}
+
 export interface IssuesListResponse {
   issues: IssueSummary[];
   etag: string;
+  degraded?: boolean;
 }
 
 export interface HealthResponse {
