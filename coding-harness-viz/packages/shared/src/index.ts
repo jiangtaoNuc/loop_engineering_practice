@@ -143,3 +143,15 @@ export interface HealthResponse {
   multicaCli: boolean;
   github: boolean;
 }
+
+export interface BatchDeleteResult {
+  id: string;
+  success: boolean;
+  error?: string;
+}
+
+export interface BatchDeleteResponse {
+  results: BatchDeleteResult[];
+  deleted: number;
+  failed: number;
+}

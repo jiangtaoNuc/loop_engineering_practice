@@ -37,6 +37,19 @@ function truncateError(err: unknown): string {
     : message;
 }
 
+async function runMulticaNoCache(args: string[]): Promise<string> {
+  try {
+    const { stdout } = await execFileAsync('multica', args, {
+      timeout: 15_000,
+      env: { ...process.env },
+    });
+    return stdout;
+  } catch (err) {
+    console.error(`multica ${args.join(' ')} failed:`, err);
+    throw err;
+  }
+}
+
 async function runMultica(args: string[]): Promise<string> {
   const key = `multica:${args.join(' ')}`;
   const staleKey = `stale:${key}`;
@@ -106,7 +119,7 @@ export async function listIssues(status?: string): Promise<MulticaIssue[]> {
   const raw = await runMultica(args);
   const parsed = JSON.parse(raw);
   const issues: MulticaIssue[] = Array.isArray(parsed) ? parsed : parsed.issues ?? [];
-  return issues;
+  return status ? issues : issues.filter((i) => i.status !== 'cancelled');
 }
 
 export async function getIssue(id: string): Promise<MulticaIssue> {
@@ -163,6 +176,34 @@ export async function createIssue(title: string): Promise<MulticaIssue> {
     'issue', 'create', '--title', title, '--output', 'json',
   ]);
   return JSON.parse(raw);
+}
+
+export async function deleteIssue(id: string): Promise<void> {
+  await runMulticaNoCache(['issue', 'status', id, 'cancelled']);
+  cache.invalidatePrefix('multica:');
+}
+
+export interface DeleteResult {
+  id: string;
+  success: boolean;
+  error?: string;
+}
+
+export async function deleteIssues(ids: string[]): Promise<DeleteResult[]> {
+  const results: DeleteResult[] = [];
+  for (const id of ids) {
+    try {
+      await runMulticaNoCache(['issue', 'status', id, 'cancelled']);
+      results.push({ id, success: true });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      results.push({ id, success: false, error: msg });
+    }
+  }
+  if (results.some((r) => r.success)) {
+    cache.invalidatePrefix('multica:');
+  }
+  return results;
 }
 
 export async function checkCli(): Promise<boolean> {

@@ -133,6 +133,11 @@ export function useIssues(includeAutopilot: boolean = false) {
     }
   }, [includeAutopilot]);
 
+  const refetch = useCallback(() => {
+    etagRef.current = null;
+    fetchIssues();
+  }, [fetchIssues]);
+
   useEffect(() => {
     etagRef.current = null;
     let cancelled = false;
@@ -154,7 +159,7 @@ export function useIssues(includeAutopilot: boolean = false) {
     };
   }, [fetchIssues]);
 
-  return { data, error };
+  return { data, error, refetch };
 }
 
 export function useHarness(issueId: string | null) {
