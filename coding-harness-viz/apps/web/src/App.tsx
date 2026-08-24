@@ -28,6 +28,25 @@ function getInitialStatusFilter(): string {
   return params.get('status') ?? STATUS_FILTER_ALL;
 }
 
+function useClock() {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  return now;
+}
+
+function formatClock(d: Date): string {
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mi = String(d.getMinutes()).padStart(2, '0');
+  const ss = String(d.getSeconds()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd} ${hh}:${mi}:${ss}`;
+}
+
 export function App() {
   const [includeAutopilot, setIncludeAutopilot] = useState<boolean>(
     () => localStorage.getItem(LS_KEY) === '1'
@@ -49,6 +68,7 @@ export function App() {
   const { data: timelineData, error: timelineError } = useStatusTimeline(
     viewMode === 'graph' ? selectedId : null,
   );
+  const now = useClock();
 
   useEffect(() => {
     if (issuesData?.issues && !selectedId && issuesData.issues.length > 0) {
@@ -241,6 +261,15 @@ export function App() {
           background: 'var(--bg-deep)',
         }}>
           任务运行监控
+          <span style={{ flex: 1 }} />
+          <span style={{
+            fontFamily: 'var(--font-body)',
+            fontSize: 22,
+            color: 'var(--accent-lime)',
+            letterSpacing: 1,
+          }}>
+            {formatClock(now)}
+          </span>
         </header>
 
         {activeError && (
